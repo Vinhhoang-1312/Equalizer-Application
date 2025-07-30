@@ -1,0 +1,725 @@
+<!DOCTYPE html>
+<html lang="en">
+
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Advanced Audio Processing Application</title>
+    <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.1.3/dist/css/bootstrap.min.css" rel="stylesheet">
+    <link href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.0.0/css/all.min.css" rel="stylesheet">
+    <style>
+        body {
+            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+            min-height: 100vh;
+            font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
+        }
+
+        .main-container {
+            background: rgba(255, 255, 255, 0.95);
+            border-radius: 20px;
+            box-shadow: 0 20px 40px rgba(0, 0, 0, 0.1);
+            margin: 20px auto;
+            padding: 30px;
+        }
+
+        .upload-area {
+            border: 3px dashed #667eea;
+            border-radius: 15px;
+            padding: 40px;
+            text-align: center;
+            background: rgba(102, 126, 234, 0.05);
+            transition: all 0.3s ease;
+            cursor: pointer;
+        }
+
+        .upload-area:hover {
+            border-color: #764ba2;
+            background: rgba(118, 75, 162, 0.05);
+        }
+
+        .upload-area.dragover {
+            border-color: #764ba2;
+            background: rgba(118, 75, 162, 0.1);
+        }
+
+        .equalizer-slider {
+            width: 100%;
+            margin: 10px 0;
+        }
+
+        .result-card {
+            background: linear-gradient(135deg, #f093fb 0%, #f5576c 100%);
+            color: white;
+            border-radius: 15px;
+            padding: 20px;
+            margin: 20px 0;
+        }
+
+        .nav-tabs .nav-link {
+            border: none;
+            border-radius: 10px 10px 0 0;
+            margin-right: 5px;
+            background: rgba(102, 126, 234, 0.1);
+            color: #667eea;
+        }
+
+        .nav-tabs .nav-link.active {
+            background: #667eea;
+            color: white;
+        }
+
+        .btn-custom {
+            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+            border: none;
+            border-radius: 25px;
+            padding: 12px 30px;
+            color: white;
+            font-weight: 600;
+            transition: all 0.3s ease;
+        }
+
+        .btn-custom:hover {
+            transform: translateY(-2px);
+            box-shadow: 0 10px 20px rgba(0, 0, 0, 0.2);
+            color: white;
+        }
+
+        .progress-bar {
+            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+        }
+
+        .genre-badge {
+            background: linear-gradient(135deg, #f093fb 0%, #f5576c 100%);
+            color: white;
+            padding: 8px 16px;
+            border-radius: 20px;
+            font-weight: 600;
+            display: inline-block;
+            margin: 5px;
+        }
+
+        .confidence-meter {
+            background: rgba(255, 255, 255, 0.2);
+            border-radius: 10px;
+            padding: 10px;
+            margin: 10px 0;
+        }
+
+        .loading-spinner {
+            display: none;
+            text-align: center;
+            padding: 20px;
+        }
+
+        .feature-card {
+            background: white;
+            border-radius: 10px;
+            padding: 15px;
+            margin: 10px 0;
+            box-shadow: 0 5px 15px rgba(0, 0, 0, 0.1);
+        }
+    </style>
+</head>
+
+<body>
+    <div class="container-fluid">
+        <div class="row">
+            <div class="col-12">
+                <div class="main-container">
+                    <div class="text-center mb-4">
+                        <h1 class="display-4 text-primary">
+                            <i class="fas fa-music"></i> Advanced Audio Processing
+                        </h1>
+                        <p class="lead text-muted">Professional audio processing with AI-powered features</p>
+                    </div>
+
+                    <!-- Navigation Tabs -->
+                    <ul class="nav nav-tabs" id="mainTabs" role="tablist">
+                        <li class="nav-item" role="presentation">
+                            <button class="nav-link active" id="upload-tab" data-bs-toggle="tab"
+                                data-bs-target="#upload" type="button" role="tab">
+                                <i class="fas fa-upload"></i> File Processing
+                            </button>
+                        </li>
+                        <li class="nav-item" role="presentation">
+                            <button class="nav-link" id="realtime-tab" data-bs-toggle="tab" data-bs-target="#realtime"
+                                type="button" role="tab">
+                                <i class="fas fa-microphone"></i> Real-time
+                            </button>
+                        </li>
+                        <li class="nav-item" role="presentation">
+                            <button class="nav-link" id="spotify-tab" data-bs-toggle="tab" data-bs-target="#spotify"
+                                type="button" role="tab">
+                                <i class="fab fa-spotify"></i> Spotify
+                            </button>
+                        </li>
+                        <li class="nav-item" role="presentation">
+                            <button class="nav-link" id="analysis-tab" data-bs-toggle="tab" data-bs-target="#analysis"
+                                type="button" role="tab">
+                                <i class="fas fa-chart-bar"></i> Analysis
+                            </button>
+                        </li>
+                    </ul>
+
+                    <div class="tab-content" id="mainTabsContent">
+                        <!-- File Processing Tab -->
+                        <div class="tab-pane fade show active" id="upload" role="tabpanel">
+                            <div class="row mt-4">
+                                <div class="col-md-6">
+                                    <div class="upload-area" id="uploadArea">
+                                        <i class="fas fa-cloud-upload-alt fa-3x text-primary mb-3"></i>
+                                        <h4>Upload Audio File</h4>
+                                        <p class="text-muted">Drag and drop your audio file here or click to browse</p>
+                                        <input type="file" id="audioFile" accept=".wav,.mp3,.flac,.m4a,.ogg"
+                                            style="display: none;">
+                                        <button class="btn btn-custom"
+                                            onclick="document.getElementById('audioFile').click()">
+                                            <i class="fas fa-folder-open"></i> Choose File
+                                        </button>
+                                    </div>
+
+                                    <div class="mt-4">
+                                        <h5><i class="fas fa-sliders-h"></i> Equalizer Settings</h5>
+                                        <div class="row">
+                                            <div class="col-md-6">
+                                                <label>Sub-Bass (20-60 Hz)</label>
+                                                <input type="range" class="equalizer-slider" id="subBassGain" min="0"
+                                                    max="3" step="0.1" value="1">
+                                                <span id="subBassValue">1.0</span>
+                                            </div>
+                                            <div class="col-md-6">
+                                                <label>Bass (60-250 Hz)</label>
+                                                <input type="range" class="equalizer-slider" id="bassGain" min="0"
+                                                    max="3" step="0.1" value="1">
+                                                <span id="bassValue">1.0</span>
+                                            </div>
+                                        </div>
+                                        <div class="row">
+                                            <div class="col-md-6">
+                                                <label>Mid (250-2000 Hz)</label>
+                                                <input type="range" class="equalizer-slider" id="midGain" min="0"
+                                                    max="3" step="0.1" value="1">
+                                                <span id="midValue">1.0</span>
+                                            </div>
+                                            <div class="col-md-6">
+                                                <label>Treble (2000-8000 Hz)</label>
+                                                <input type="range" class="equalizer-slider" id="trebleGain" min="0"
+                                                    max="3" step="0.1" value="1">
+                                                <span id="trebleValue">1.0</span>
+                                            </div>
+                                        </div>
+                                        <div class="row">
+                                            <div class="col-md-6">
+                                                <label>Presence (8000-12000 Hz)</label>
+                                                <input type="range" class="equalizer-slider" id="presenceGain" min="0"
+                                                    max="3" step="0.1" value="1">
+                                                <span id="presenceValue">1.0</span>
+                                            </div>
+                                            <div class="col-md-6">
+                                                <label>Air (12000-20000 Hz)</label>
+                                                <input type="range" class="equalizer-slider" id="airGain" min="0"
+                                                    max="3" step="0.1" value="1">
+                                                <span id="airValue">1.0</span>
+                                            </div>
+                                        </div>
+
+                                        <div class="mt-3">
+                                            <label>Noise Reduction Method:</label>
+                                            <select class="form-select" id="denoiseMethod">
+                                                <option value="autoencoder">Autoencoder (ML)</option>
+                                                <option value="wiener">Wiener Filter</option>
+                                                <option value="spectral_subtraction">Spectral Subtraction</option>
+                                                <option value="adaptive">Adaptive Filter</option>
+                                            </select>
+                                        </div>
+
+                                        <button class="btn btn-custom btn-lg w-100 mt-3" id="processBtn" disabled>
+                                            <i class="fas fa-cogs"></i> Process Audio
+                                        </button>
+                                    </div>
+                                </div>
+
+                                <div class="col-md-6">
+                                    <div id="results" style="display: none;">
+                                        <h5><i class="fas fa-chart-line"></i> Processing Results</h5>
+
+                                        <div class="result-card">
+                                            <h6><i class="fas fa-music"></i> Genre Classification</h6>
+                                            <div class="genre-badge" id="genreResult">Unknown</div>
+                                            <div class="confidence-meter">
+                                                <label>Confidence:</label>
+                                                <div class="progress">
+                                                    <div class="progress-bar" id="confidenceBar" role="progressbar"
+                                                        style="width: 0%"></div>
+                                                </div>
+                                                <span id="confidenceValue">0%</span>
+                                            </div>
+                                        </div>
+
+                                        <div class="feature-card">
+                                            <h6><i class="fas fa-info-circle"></i> Audio Analysis</h6>
+                                            <div id="audioAnalysis"></div>
+                                        </div>
+
+                                        <div class="feature-card">
+                                            <h6><i class="fas fa-download"></i> Download Results</h6>
+                                            <button class="btn btn-outline-primary btn-sm" id="downloadProcessed">
+                                                <i class="fas fa-download"></i> Download Processed Audio
+                                            </button>
+                                            <button class="btn btn-outline-secondary btn-sm" id="downloadAnalysis">
+                                                <i class="fas fa-chart-bar"></i> Download Analysis
+                                            </button>
+                                        </div>
+
+                                        <div class="feature-card">
+                                            <h6><i class="fas fa-image"></i> Visualization</h6>
+                                            <img id="analysisImage" class="img-fluid rounded" style="display: none;">
+                                        </div>
+                                    </div>
+
+                                    <div class="loading-spinner" id="loadingSpinner">
+                                        <div class="spinner-border text-primary" role="status">
+                                            <span class="visually-hidden">Loading...</span>
+                                        </div>
+                                        <p class="mt-2">Processing audio... This may take a few moments.</p>
+                                    </div>
+                                </div>
+                            </div>
+                        </div>
+
+                        <!-- Real-time Tab -->
+                        <div class="tab-pane fade" id="realtime" role="tabpanel">
+                            <div class="row mt-4">
+                                <div class="col-md-6">
+                                    <h5><i class="fas fa-microphone"></i> Real-time Audio Processing</h5>
+                                    <p class="text-muted">Process audio from your microphone in real-time</p>
+
+                                    <div class="feature-card">
+                                        <h6>Real-time Controls</h6>
+                                        <button class="btn btn-success btn-lg" id="startRealtime">
+                                            <i class="fas fa-play"></i> Start Recording
+                                        </button>
+                                        <button class="btn btn-danger btn-lg" id="stopRealtime" style="display: none;">
+                                            <i class="fas fa-stop"></i> Stop Recording
+                                        </button>
+                                    </div>
+
+                                    <div class="feature-card">
+                                        <h6>Real-time Equalizer</h6>
+                                        <div class="row">
+                                            <div class="col-md-6">
+                                                <label>Bass</label>
+                                                <input type="range" class="equalizer-slider" id="rtBassGain" min="0"
+                                                    max="3" step="0.1" value="1">
+                                            </div>
+                                            <div class="col-md-6">
+                                                <label>Mid</label>
+                                                <input type="range" class="equalizer-slider" id="rtMidGain" min="0"
+                                                    max="3" step="0.1" value="1">
+                                            </div>
+                                        </div>
+                                        <div class="row">
+                                            <div class="col-md-6">
+                                                <label>Treble</label>
+                                                <input type="range" class="equalizer-slider" id="rtTrebleGain" min="0"
+                                                    max="3" step="0.1" value="1">
+                                            </div>
+                                            <div class="col-md-6">
+                                                <label>Noise Reduction</label>
+                                                <select class="form-select" id="rtDenoiseMethod">
+                                                    <option value="autoencoder">Autoencoder</option>
+                                                    <option value="wiener">Wiener</option>
+                                                </select>
+                                            </div>
+                                        </div>
+                                    </div>
+                                </div>
+
+                                <div class="col-md-6">
+                                    <div class="feature-card">
+                                        <h6><i class="fas fa-chart-line"></i> Real-time Results</h6>
+                                        <div id="realtimeResults">
+                                            <p class="text-muted">Start recording to see real-time results</p>
+                                        </div>
+                                    </div>
+                                </div>
+                            </div>
+                        </div>
+
+                        <!-- Spotify Tab -->
+                        <div class="tab-pane fade" id="spotify" role="tabpanel">
+                            <div class="row mt-4">
+                                <div class="col-md-6">
+                                    <h5><i class="fab fa-spotify"></i> Spotify Integration</h5>
+                                    <p class="text-muted">Search and analyze music from Spotify</p>
+
+                                    <div class="feature-card">
+                                        <h6>Search by Genre</h6>
+                                        <div class="input-group mb-3">
+                                            <input type="text" class="form-control" id="spotifyGenre"
+                                                placeholder="Enter genre (e.g., pop, rock, jazz)" value="pop">
+                                            <button class="btn btn-custom" id="searchSpotify">
+                                                <i class="fas fa-search"></i> Search
+                                            </button>
+                                        </div>
+                                    </div>
+
+                                    <div class="feature-card">
+                                        <h6>Create Training Dataset</h6>
+                                        <div class="mb-3">
+                                            <label>Genres:</label>
+                                            <input type="text" class="form-control" id="datasetGenres"
+                                                value="pop,rock,classical,jazz" placeholder="comma-separated genres">
+                                        </div>
+                                        <div class="mb-3">
+                                            <label>Tracks per genre:</label>
+                                            <input type="number" class="form-control" id="tracksPerGenre" value="50"
+                                                min="10" max="100">
+                                        </div>
+                                        <button class="btn btn-custom" id="createDataset">
+                                            <i class="fas fa-database"></i> Create Dataset
+                                        </button>
+                                    </div>
+                                </div>
+
+                                <div class="col-md-6">
+                                    <div class="feature-card">
+                                        <h6><i class="fas fa-list"></i> Search Results</h6>
+                                        <div id="spotifyResults">
+                                            <p class="text-muted">Search for tracks to see results</p>
+                                        </div>
+                                    </div>
+                                </div>
+                            </div>
+                        </div>
+
+                        <!-- Analysis Tab -->
+                        <div class="tab-pane fade" id="analysis" role="tabpanel">
+                            <div class="row mt-4">
+                                <div class="col-md-6">
+                                    <h5><i class="fas fa-chart-bar"></i> Audio Analysis</h5>
+                                    <p class="text-muted">Detailed analysis of audio characteristics</p>
+
+                                    <div class="upload-area" id="analysisUploadArea">
+                                        <i class="fas fa-chart-line fa-3x text-primary mb-3"></i>
+                                        <h4>Upload Audio for Analysis</h4>
+                                        <p class="text-muted">Get detailed analysis of your audio file</p>
+                                        <input type="file" id="analysisFile" accept=".wav,.mp3,.flac,.m4a,.ogg"
+                                            style="display: none;">
+                                        <button class="btn btn-custom"
+                                            onclick="document.getElementById('analysisFile').click()">
+                                            <i class="fas fa-folder-open"></i> Choose File
+                                        </button>
+                                    </div>
+
+                                    <button class="btn btn-custom btn-lg w-100 mt-3" id="analyzeBtn" disabled>
+                                        <i class="fas fa-microscope"></i> Analyze Audio
+                                    </button>
+                                </div>
+
+                                <div class="col-md-6">
+                                    <div class="feature-card">
+                                        <h6><i class="fas fa-chart-pie"></i> Analysis Results</h6>
+                                        <div id="analysisResults">
+                                            <p class="text-muted">Upload and analyze audio to see results</p>
+                                        </div>
+                                    </div>
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <script src="https://cdn.jsdelivr.net/npm/bootstrap@5.1.3/dist/js/bootstrap.bundle.min.js"></script>
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/socket.io/4.0.1/socket.io.js"></script>
+    <script>
+        // Initialize Socket.IO
+        const socket = io();
+
+        // File upload handling
+        const uploadArea = document.getElementById('uploadArea');
+        const audioFile = document.getElementById('audioFile');
+        const processBtn = document.getElementById('processBtn');
+
+        // Drag and drop functionality
+        uploadArea.addEventListener('dragover', (e) => {
+            e.preventDefault();
+            uploadArea.classList.add('dragover');
+        });
+
+        uploadArea.addEventListener('dragleave', () => {
+            uploadArea.classList.remove('dragover');
+        });
+
+        uploadArea.addEventListener('drop', (e) => {
+            e.preventDefault();
+            uploadArea.classList.remove('dragover');
+            const files = e.dataTransfer.files;
+            if (files.length > 0) {
+                audioFile.files = files;
+                handleFileSelect();
+            }
+        });
+
+        uploadArea.addEventListener('click', () => {
+            audioFile.click();
+        });
+
+        audioFile.addEventListener('change', handleFileSelect);
+
+        function handleFileSelect() {
+            if (audioFile.files.length > 0) {
+                const file = audioFile.files[0];
+                uploadArea.innerHTML = `
+                    <i class="fas fa-check-circle fa-3x text-success mb-3"></i>
+                    <h4>File Selected</h4>
+                    <p class="text-muted">${file.name}</p>
+                    <button class="btn btn-custom" onclick="document.getElementById('audioFile').click()">
+                        <i class="fas fa-folder-open"></i> Choose Different File
+                    </button>
+                `;
+                processBtn.disabled = false;
+            }
+        }
+
+        // Equalizer slider updates
+        const sliders = ['subBassGain', 'bassGain', 'midGain', 'trebleGain', 'presenceGain', 'airGain'];
+        sliders.forEach(sliderId => {
+            const slider = document.getElementById(sliderId);
+            const valueSpan = document.getElementById(sliderId.replace('Gain', 'Value'));
+            slider.addEventListener('input', () => {
+                valueSpan.textContent = slider.value;
+            });
+        });
+
+        // Process audio
+        processBtn.addEventListener('click', async () => {
+            const formData = new FormData();
+            formData.append('file', audioFile.files[0]);
+
+            // Add equalizer parameters
+            sliders.forEach(sliderId => {
+                const slider = document.getElementById(sliderId);
+                formData.append(sliderId, slider.value);
+            });
+
+            formData.append('denoise_method', document.getElementById('denoiseMethod').value);
+
+            // Show loading
+            document.getElementById('loadingSpinner').style.display = 'block';
+            document.getElementById('results').style.display = 'none';
+
+            try {
+                const response = await fetch('/upload', {
+                    method: 'POST',
+                    body: formData
+                });
+
+                const result = await response.json();
+
+                if (result.success) {
+                    displayResults(result);
+                } else {
+                    alert('Error: ' + result.error);
+                }
+            } catch (error) {
+                alert('Error processing audio: ' + error.message);
+            } finally {
+                document.getElementById('loadingSpinner').style.display = 'none';
+            }
+        });
+
+        function displayResults(result) {
+            document.getElementById('results').style.display = 'block';
+            document.getElementById('genreResult').textContent = result.genre;
+            document.getElementById('confidenceValue').textContent = result.confidence;
+            document.getElementById('confidenceBar').style.width = result.confidence;
+
+            // Display audio analysis
+            const analysis = result.analysis;
+            let analysisHtml = '';
+            for (const [key, value] of Object.entries(analysis)) {
+                analysisHtml += `<div><strong>${key}:</strong> ${typeof value === 'number' ? value.toFixed(2) : value}</div>`;
+            }
+            document.getElementById('audioAnalysis').innerHTML = analysisHtml;
+
+            // Display visualization
+            if (result.visualization) {
+                const img = document.getElementById('analysisImage');
+                img.src = `/static/results/${result.visualization}`;
+                img.style.display = 'block';
+            }
+
+            // Setup download buttons
+            document.getElementById('downloadProcessed').onclick = () => {
+                window.open(`/download/${result.processed_file}`, '_blank');
+            };
+            document.getElementById('downloadAnalysis').onclick = () => {
+                window.open(`/download/${result.visualization}`, '_blank');
+            };
+        }
+
+        // Real-time processing
+        const startRealtimeBtn = document.getElementById('startRealtime');
+        const stopRealtimeBtn = document.getElementById('stopRealtime');
+
+        startRealtimeBtn.addEventListener('click', () => {
+            const equalizerParams = {
+                bass_gain: parseFloat(document.getElementById('rtBassGain').value),
+                mid_gain: parseFloat(document.getElementById('rtMidGain').value),
+                treble_gain: parseFloat(document.getElementById('rtTrebleGain').value),
+                sub_bass_gain: 1.0,
+                presence_gain: 1.0,
+                air_gain: 1.0
+            };
+
+            socket.emit('start_realtime', {
+                ...equalizerParams,
+                denoise_method: document.getElementById('rtDenoiseMethod').value
+            });
+
+            startRealtimeBtn.style.display = 'none';
+            stopRealtimeBtn.style.display = 'inline-block';
+        });
+
+        stopRealtimeBtn.addEventListener('click', () => {
+            socket.emit('stop_realtime');
+            startRealtimeBtn.style.display = 'inline-block';
+            stopRealtimeBtn.style.display = 'none';
+        });
+
+        socket.on('realtime_update', (data) => {
+            const resultsDiv = document.getElementById('realtimeResults');
+            resultsDiv.innerHTML = `
+                <div class="genre-badge">${data.genre}</div>
+                <div class="confidence-meter">
+                    <label>Confidence: ${data.confidence}</label>
+                </div>
+                <small class="text-muted">Last update: ${new Date().toLocaleTimeString()}</small>
+            `;
+        });
+
+        // Spotify integration
+        document.getElementById('searchSpotify').addEventListener('click', async () => {
+            const genre = document.getElementById('spotifyGenre').value;
+            const limit = 10;
+
+            try {
+                const response = await fetch('/api/spotify/search', {
+                    method: 'POST',
+                    headers: {
+                        'Content-Type': 'application/json'
+                    },
+                    body: JSON.stringify({ genre, limit })
+                });
+
+                const result = await response.json();
+                if (result.success) {
+                    displaySpotifyResults(result.tracks);
+                }
+            } catch (error) {
+                alert('Error searching Spotify: ' + error.message);
+            }
+        });
+
+        document.getElementById('createDataset').addEventListener('click', async () => {
+            const genres = document.getElementById('datasetGenres').value.split(',').map(g => g.trim());
+            const tracksPerGenre = parseInt(document.getElementById('tracksPerGenre').value);
+
+            try {
+                const response = await fetch('/api/spotify/dataset', {
+                    method: 'POST',
+                    headers: {
+                        'Content-Type': 'application/json'
+                    },
+                    body: JSON.stringify({ genres, tracks_per_genre: tracksPerGenre })
+                });
+
+                const result = await response.json();
+                if (result.success) {
+                    alert(result.message);
+                }
+            } catch (error) {
+                alert('Error creating dataset: ' + error.message);
+            }
+        });
+
+        function displaySpotifyResults(tracks) {
+            const resultsDiv = document.getElementById('spotifyResults');
+            let html = '<div class="list-group">';
+
+            tracks.forEach(track => {
+                html += `
+                    <div class="list-group-item">
+                        <h6>${track.name}</h6>
+                        <p class="mb-1">${track.artist} - ${track.album}</p>
+                        <small class="text-muted">Duration: ${Math.round(track.duration_ms / 1000)}s | Popularity: ${track.popularity}</small>
+                    </div>
+                `;
+            });
+
+            html += '</div>';
+            resultsDiv.innerHTML = html;
+        }
+
+        // Analysis functionality
+        const analysisFile = document.getElementById('analysisFile');
+        const analyzeBtn = document.getElementById('analyzeBtn');
+
+        analysisFile.addEventListener('change', () => {
+            if (analysisFile.files.length > 0) {
+                analyzeBtn.disabled = false;
+            }
+        });
+
+        analyzeBtn.addEventListener('click', async () => {
+            const formData = new FormData();
+            formData.append('file', analysisFile.files[0]);
+
+            try {
+                const response = await fetch('/api/analyze', {
+                    method: 'POST',
+                    body: formData
+                });
+
+                const result = await response.json();
+                if (result.success) {
+                    displayAnalysisResults(result);
+                } else {
+                    alert('Error: ' + result.error);
+                }
+            } catch (error) {
+                alert('Error analyzing audio: ' + error.message);
+            }
+        });
+
+        function displayAnalysisResults(result) {
+            const resultsDiv = document.getElementById('analysisResults');
+            let html = '<div class="row">';
+
+            // Analysis data
+            html += '<div class="col-md-6">';
+            html += '<h6>Audio Characteristics</h6>';
+            for (const [key, value] of Object.entries(result.analysis)) {
+                html += `<div><strong>${key}:</strong> ${typeof value === 'number' ? value.toFixed(2) : value}</div>`;
+            }
+            html += '</div>';
+
+            // Visualization
+            if (result.visualization) {
+                html += '<div class="col-md-6">';
+                html += '<h6>Visualization</h6>';
+                html += `<img src="/static/results/${result.visualization}" class="img-fluid rounded">`;
+                html += '</div>';
+            }
+
+            html += '</div>';
+            resultsDiv.innerHTML = html;
+        }
+    </script>
+</body>
+
+</html>
