@@ -296,6 +296,29 @@ class AdvancedAudioProcessor:
             # Normalize magnitude
             magnitude_norm = magnitude / np.max(magnitude)
             
+            # Check if model expects specific input shape
+            expected_shape = (1025, 1292, 1)
+            current_shape = magnitude_norm.shape
+            
+            # Resize if necessary
+            if current_shape[0] != expected_shape[0] or current_shape[1] != expected_shape[1]:
+                # Pad or crop to expected size
+                if current_shape[0] < expected_shape[0]:
+                    # Pad with zeros
+                    pad_height = expected_shape[0] - current_shape[0]
+                    magnitude_norm = np.pad(magnitude_norm, ((0, pad_height), (0, 0)), mode='constant')
+                else:
+                    # Crop
+                    magnitude_norm = magnitude_norm[:expected_shape[0], :]
+                
+                if current_shape[1] < expected_shape[1]:
+                    # Pad with zeros
+                    pad_width = expected_shape[1] - current_shape[1]
+                    magnitude_norm = np.pad(magnitude_norm, ((0, 0), (0, pad_width)), mode='constant')
+                else:
+                    # Crop
+                    magnitude_norm = magnitude_norm[:, :expected_shape[1]]
+            
             # Reshape for model input
             magnitude_reshaped = magnitude_norm.reshape(1, magnitude_norm.shape[0], 
                                                        magnitude_norm.shape[1], 1)
@@ -606,13 +629,19 @@ class AdvancedAudioProcessor:
             results: Results from process_audio_file_advanced
             save_path: Path to save visualization
         """
+        # Set matplotlib backend to non-interactive
+        plt.switch_backend('Agg')
+        
         fig, axes = plt.subplots(3, 2, figsize=(15, 12))
         
         # Original vs Processed audio
         time_axis = np.linspace(0, len(results['original_audio'])/self.sample_rate, 
                                len(results['original_audio']))
         
-        axes[0, 0].plot(time_axis[:22050], results['original_audio'][:22050], 
+        # Limit display to first 5 seconds
+        max_samples = min(22050 * 5, len(results['original_audio']))
+        
+        axes[0, 0].plot(time_axis[:max_samples], results['original_audio'][:max_samples], 
                        label='Original', alpha=0.7)
         axes[0, 0].set_title('Original Audio')
         axes[0, 0].set_xlabel('Time (s)')
@@ -620,7 +649,7 @@ class AdvancedAudioProcessor:
         axes[0, 0].legend()
         axes[0, 0].grid(True)
         
-        axes[0, 1].plot(time_axis[:22050], results['processed_audio'][:22050], 
+        axes[0, 1].plot(time_axis[:max_samples], results['processed_audio'][:max_samples], 
                        label='Processed', alpha=0.7, color='orange')
         axes[0, 1].set_title('Processed Audio')
         axes[0, 1].set_xlabel('Time (s)')
@@ -679,9 +708,13 @@ class AdvancedAudioProcessor:
         plt.tight_layout()
         
         if save_path:
+            # Ensure directory exists
+            os.makedirs(os.path.dirname(save_path), exist_ok=True)
             plt.savefig(save_path, dpi=300, bbox_inches='tight')
+            print(f"📊 Visualization saved to: {save_path}")
         
-        plt.show()
+        # Don't show plot in non-interactive mode
+        plt.close()
 
 def main():
     """Test advanced audio processor"""
