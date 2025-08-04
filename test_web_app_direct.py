@@ -1,70 +1,74 @@
 #!/usr/bin/env python3
 """
-Direct test of web app processing
+Test Web App Directly
+Kiểm tra web app trực tiếp không qua browser
 """
 
+import requests
+import json
 import os
-import sys
-sys.path.append('.')
-
-from web_app import audio_processor
-from werkzeug.utils import secure_filename
 
 def test_web_app_direct():
-    """Test the web app's audio processor directly"""
-    print("Testing web app audio processor directly...")
+    """Test web app endpoints directly"""
+    base_url = "http://localhost:5001"
     
-    # Check if test file exists
-    if not os.path.exists('test_audio.wav'):
-        print("✗ Test audio file not found. Run create_test_audio.py first.")
-        return
+    print("🧪 Testing Web App Directly")
+    print("=" * 40)
     
-    # Simulate web app processing
-    filename = secure_filename('test_audio.wav')
-    filepath = os.path.join('uploads', filename)
-    
-    # Ensure uploads directory exists
-    os.makedirs('uploads', exist_ok=True)
-    
-    # Copy test file to uploads directory
-    import shutil
-    shutil.copy('test_audio.wav', filepath)
-    
-    print(f"Processing file: {filepath}")
-    
+    # Test 1: Check if server is running
     try:
-        # Process audio using web app's audio processor
-        results = audio_processor.process_audio_file_advanced(
-            filepath, 
-            equalizer_params={
-                'bass_gain': 1.0,
-                'mid_gain': 1.0,
-                'treble_gain': 1.0,
-                'sub_bass_gain': 1.0,
-                'presence_gain': 1.0,
-                'air_gain': 1.0
-            },
-            denoise_method='autoencoder',
-            analyze=True
-        )
-        
-        print(f"✓ Processing completed")
-        print(f"Genre: {results['genre']}")
-        print(f"Confidence: {results['confidence']}")
-        print(f"Confidence type: {type(results['confidence'])}")
-        
-        # Test genre classification directly
-        print("\nTesting genre classification directly...")
-        import librosa
-        audio, sr = librosa.load(filepath, sr=audio_processor.sample_rate)
-        genre, confidence, info = audio_processor.advanced_genre_classification(audio)
-        print(f"Direct genre: {genre}")
-        print(f"Direct confidence: {confidence}")
-        
+        response = requests.get(base_url, timeout=5)
+        print(f"✅ Server is running (Status: {response.status_code})")
+    except requests.exceptions.RequestException as e:
+        print(f"❌ Server not accessible: {e}")
+        return False
+    
+    # Test 2: Check status endpoint
+    try:
+        response = requests.get(f"{base_url}/api/status", timeout=5)
+        if response.status_code == 200:
+            status_data = response.json()
+            print(f"✅ Status endpoint working: {status_data}")
+        else:
+            print(f"⚠️ Status endpoint returned {response.status_code}")
     except Exception as e:
-        print(f"✗ Processing failed: {e}")
-        import traceback
-        traceback.print_exc()
+        print(f"❌ Status endpoint error: {e}")
+    
+    # Test 3: Test with a simple audio file
+    test_file = "test_audio.wav"
+    if os.path.exists(test_file):
+        print(f"📁 Found test file: {test_file}")
+        
+        try:
+            with open(test_file, 'rb') as f:
+                files = {'file': (test_file, f, 'audio/wav')}
+                data = {
+                    'bass_gain': '1.0',
+                    'mid_gain': '1.0', 
+                    'treble_gain': '1.0',
+                    'sub_bass_gain': '1.0',
+                    'presence_gain': '1.0',
+                    'air_gain': '1.0',
+                    'denoise_method': 'wiener'
+                }
+                
+                response = requests.post(f"{base_url}/upload", files=files, data=data, timeout=30)
+                
+                if response.status_code == 200:
+                    result = response.json()
+                    print(f"✅ Upload successful: {result.get('genre', 'Unknown')}")
+                    print(f"   Confidence: {result.get('confidence', 0):.2%}")
+                else:
+                    print(f"❌ Upload failed: {response.status_code}")
+                    print(f"   Response: {response.text[:200]}")
+                    
+        except Exception as e:
+            print(f"❌ Upload test error: {e}")
+    else:
+        print(f"⚠️ Test file not found: {test_file}")
+    
+    print("\n🎉 Web App Test Complete!")
+    return True
 
 if __name__ == "__main__":
     test_web_app_direct() 

@@ -296,30 +296,7 @@ class AdvancedAudioProcessor:
             # Normalize magnitude
             magnitude_norm = magnitude / np.max(magnitude)
             
-            # Check if model expects specific input shape
-            expected_shape = (1025, 1292, 1)
-            current_shape = magnitude_norm.shape
-            
-            # Resize if necessary
-            if current_shape[0] != expected_shape[0] or current_shape[1] != expected_shape[1]:
-                # Pad or crop to expected size
-                if current_shape[0] < expected_shape[0]:
-                    # Pad with zeros
-                    pad_height = expected_shape[0] - current_shape[0]
-                    magnitude_norm = np.pad(magnitude_norm, ((0, pad_height), (0, 0)), mode='constant')
-                else:
-                    # Crop
-                    magnitude_norm = magnitude_norm[:expected_shape[0], :]
-                
-                if current_shape[1] < expected_shape[1]:
-                    # Pad with zeros
-                    pad_width = expected_shape[1] - current_shape[1]
-                    magnitude_norm = np.pad(magnitude_norm, ((0, 0), (0, pad_width)), mode='constant')
-                else:
-                    # Crop
-                    magnitude_norm = magnitude_norm[:, :expected_shape[1]]
-            
-            # Reshape for model input
+            # Reshape for model input - handle variable shapes
             magnitude_reshaped = magnitude_norm.reshape(1, magnitude_norm.shape[0], 
                                                        magnitude_norm.shape[1], 1)
             

@@ -341,4 +341,14 @@ def status():
     })
 
 if __name__ == '__main__':
-    socketio.run(app, debug=True, host='0.0.0.0', port=5001) 
+    print("🌐 Khởi động Advanced Audio Processing Web App...")
+    print("📱 Truy cập tại: http://localhost:5000")
+    print("🎵 Để dừng server, nhấn Ctrl+C")
+    
+    try:
+        socketio.run(app, debug=True, host='0.0.0.0', port=5000)
+    except KeyboardInterrupt:
+        print("\n⏹️ Dừng server...")
+    except Exception as e:
+        print(f"❌ Lỗi khởi động server: {e}")
+        print("💡 Thử chạy với port khác: python web_app.py --port 5001") 

@@ -27,27 +27,52 @@ def create_missing_models():
         print("✓ Created advanced_scaler.pkl")
         print("✓ Created feature_scaler.pkl")
     
-    # Create simple noise reducer model
+    # Create improved noise reducer model with flexible input shape
     if not os.path.exists('models/advanced_noise_reducer.h5'):
-        print("Creating simple noise reducer model...")
+        print("Creating improved noise reducer model...")
         
-        # Simple autoencoder for noise reduction
-        model = tf.keras.Sequential([
-            tf.keras.layers.Input(shape=(1025, 1292, 1)),
-            tf.keras.layers.Conv2D(16, (3, 3), activation='relu', padding='same'),
-            tf.keras.layers.MaxPooling2D((2, 2), padding='same'),
-            tf.keras.layers.Conv2D(8, (3, 3), activation='relu', padding='same'),
-            tf.keras.layers.MaxPooling2D((2, 2), padding='same'),
-            tf.keras.layers.Conv2D(8, (3, 3), activation='relu', padding='same'),
-            tf.keras.layers.UpSampling2D((2, 2)),
-            tf.keras.layers.Conv2D(16, (3, 3), activation='relu', padding='same'),
-            tf.keras.layers.UpSampling2D((2, 2)),
-            tf.keras.layers.Conv2D(1, (3, 3), activation='sigmoid', padding='same')
-        ])
+        # Create a more flexible autoencoder
+        def create_flexible_autoencoder():
+            # Input layer with flexible shape
+            input_layer = tf.keras.layers.Input(shape=(None, None, 1))
+            
+            # Encoder
+            x = tf.keras.layers.Conv2D(32, (3, 3), activation='relu', padding='same')(input_layer)
+            x = tf.keras.layers.BatchNormalization()(x)
+            x = tf.keras.layers.MaxPooling2D((2, 2), padding='same')(x)
+            
+            x = tf.keras.layers.Conv2D(64, (3, 3), activation='relu', padding='same')(x)
+            x = tf.keras.layers.BatchNormalization()(x)
+            x = tf.keras.layers.MaxPooling2D((2, 2), padding='same')(x)
+            
+            x = tf.keras.layers.Conv2D(128, (3, 3), activation='relu', padding='same')(x)
+            x = tf.keras.layers.BatchNormalization()(x)
+            encoded = tf.keras.layers.MaxPooling2D((2, 2), padding='same')(x)
+            
+            # Decoder
+            x = tf.keras.layers.Conv2D(128, (3, 3), activation='relu', padding='same')(encoded)
+            x = tf.keras.layers.BatchNormalization()(x)
+            x = tf.keras.layers.UpSampling2D((2, 2))(x)
+            
+            x = tf.keras.layers.Conv2D(64, (3, 3), activation='relu', padding='same')(x)
+            x = tf.keras.layers.BatchNormalization()(x)
+            x = tf.keras.layers.UpSampling2D((2, 2))(x)
+            
+            x = tf.keras.layers.Conv2D(32, (3, 3), activation='relu', padding='same')(x)
+            x = tf.keras.layers.BatchNormalization()(x)
+            x = tf.keras.layers.UpSampling2D((2, 2))(x)
+            
+            decoded = tf.keras.layers.Conv2D(1, (3, 3), activation='sigmoid', padding='same')(x)
+            
+            # Create model
+            autoencoder = tf.keras.Model(input_layer, decoded)
+            autoencoder.compile(optimizer='adam', loss='mse', metrics=['mae'])
+            
+            return autoencoder
         
-        model.compile(optimizer='adam', loss='mse')
+        model = create_flexible_autoencoder()
         model.save('models/advanced_noise_reducer.h5')
-        print("✓ Created advanced_noise_reducer.h5")
+        print("✓ Created improved advanced_noise_reducer.h5")
     
     print("All required models created successfully!")
 
