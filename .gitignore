@@ -102,13 +102,13 @@ celerybeat.pid
 *.sage.py
 
 # Environments
-.env
-.venv
-env/
-venv/
-ENV/
-env.bak/
-venv.bak/
+# .env (removed for academic project)
+# .venv (removed for academic project)
+# env/ (removed for academic project)
+# venv/ (removed for academic project)
+# ENV/ (removed for academic project)
+# env.bak/ (removed for academic project)
+# venv.bak/ (removed for academic project)
 
 # Spyder project settings
 .spyderproject
@@ -128,26 +128,31 @@ dmypy.json
 # Pyre type checker
 .pyre/
 
-# Audio files
-*.wav
-*.mp3
-*.flac
-*.ogg
-*.m4a
-*.aac
+# Audio files (user uploads and processed files - removed for academic project)
+# uploads/*.wav
+# uploads/*.mp3
+# uploads/*.flac
+# uploads/*.ogg
+# uploads/*.m4a
+# uploads/*.aac
+# static/results/*.wav
+# static/results/*.mp3
+# static/results/*.flac
+# static/results/*.ogg
+# static/results/*.m4a
+# static/results/*.aac
 
-# Model files
-models/*.pkl
-models/*.h5
-models/*.hdf5
-models/*.pb
-models/*.onnx
+# Model files (trained models, not model code - removed for academic project)
+# models/trained_*.pkl
+# models/trained_*.h5
+# models/trained_*.hdf5
+# models/trained_*.pb
+# models/trained_*.onnx
 
-# Data files
-data/
-*.csv
-*.json
-*.xml
+# Data files (user data, not sample data - removed for academic project)
+# data/user_*.csv
+# data/user_*.json
+# data/user_*.xml
 
 # Test files
 test_*.wav
@@ -181,12 +186,11 @@ Thumbs.db
 *.log
 logs/
 
-# Config files with sensitive data
-config.ini
-secrets.json
-.env.local
+# Config files with sensitive data (removed for academic project)
+# config.ini
+# secrets.json
+# .env.local
 
-# Output files
-output/
-results/
-processed_audio/ 
+# Output files (processed results - removed for academic project)
+# output/
+# static/results/processed_* 
