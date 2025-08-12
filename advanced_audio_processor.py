@@ -395,7 +395,7 @@ class AdvancedAudioProcessor:
     
     def advanced_genre_classification(self, audio: np.ndarray) -> Tuple[str, float, Dict]:
         """
-        Advanced genre classification with confidence and additional info
+        Advanced genre classification with multiple fallback methods
         
         Args:
             audio: Input audio array
@@ -403,33 +403,117 @@ class AdvancedAudioProcessor:
         Returns:
             Tuple of (genre, confidence, additional_info)
         """
-        if self.genre_classifier is None:
-            return "Unknown", 0.0, {}
-        
-        # Extract basic features (compatible with trained model)
-        features = self.extract_basic_features(audio)
-        
-        # Scale features
-        if self.feature_scaler is not None:
-            features = self.feature_scaler.transform(features.reshape(1, -1))
-        
-        # Predict
-        prediction = self.genre_classifier.predict_proba(features.reshape(1, -1))[0]
-        genre_idx = np.argmax(prediction)
-        confidence = prediction[genre_idx]
-        
         genres = ['blues', 'classical', 'country', 'disco', 'hiphop', 
                  'jazz', 'metal', 'pop', 'reggae', 'rock']
         
-        # Additional information
-        additional_info = {
-            'all_probabilities': dict(zip(genres, prediction.tolist())),
-            'second_choice': genres[np.argsort(prediction)[-2]],
-            'second_confidence': float(np.sort(prediction)[-2]),
-            'feature_vector': features.flatten().tolist()
-        }
+        # Method 1: Try trained model first
+        if self.genre_classifier is not None:
+            try:
+                features = self.extract_basic_features(audio)
+                
+                if self.feature_scaler is not None:
+                    features = self.feature_scaler.transform(features.reshape(1, -1))
+                
+                prediction = self.genre_classifier.predict_proba(features.reshape(1, -1))[0]
+                genre_idx = np.argmax(prediction)
+                confidence = prediction[genre_idx]
+                
+                # Only return if confidence is reasonable
+                if confidence > 0.2:
+                    additional_info = {
+                        'method': 'trained_model',
+                        'all_probabilities': dict(zip(genres, prediction.tolist())),
+                        'second_choice': genres[np.argsort(prediction)[-2]],
+                        'second_confidence': float(np.sort(prediction)[-2]),
+                        'feature_vector': features.flatten().tolist()
+                    }
+                    return genres[genre_idx], confidence, additional_info
+            except Exception as e:
+                print(f"⚠️ Trained model failed: {e}")
         
-        return genres[genre_idx], confidence, additional_info
+        # Method 2: Rule-based classification using audio characteristics
+        try:
+            analysis = self.analyze_audio_characteristics(audio)
+            genre, confidence = self._rule_based_classification(analysis)
+            
+            if confidence > 0.3:
+                additional_info = {
+                    'method': 'rule_based',
+                    'analysis': analysis,
+                    'all_probabilities': {genre: confidence}
+                }
+                return genre, confidence, additional_info
+        except Exception as e:
+            print(f"⚠️ Rule-based classification failed: {e}")
+        
+        # Method 3: Simple feature-based classification
+        try:
+            genre, confidence = self._simple_classification(audio)
+            
+            additional_info = {
+                'method': 'simple_features',
+                'all_probabilities': {genre: confidence}
+            }
+            return genre, confidence, additional_info
+        except Exception as e:
+            print(f"⚠️ Simple classification failed: {e}")
+        
+        # Fallback: Return most common genre with low confidence
+        return "pop", 0.1, {'method': 'fallback', 'all_probabilities': {'pop': 0.1}}
+    
+    def _rule_based_classification(self, analysis: Dict) -> Tuple[str, float]:
+        """Rule-based genre classification using audio characteristics"""
+        tempo = analysis.get('tempo', 120)
+        energy = analysis.get('energy', 0.5)
+        brightness = analysis.get('brightness', 2000)
+        harmonic_ratio = analysis.get('harmonic_ratio', 0.5)
+        noisiness = analysis.get('noisiness', 0.1)
+        
+        # Simple rules based on audio characteristics
+        if tempo > 140 and energy > 0.7:
+            return "rock", 0.6
+        elif tempo < 100 and harmonic_ratio > 0.7:
+            return "jazz", 0.5
+        elif tempo > 120 and energy > 0.8 and noisiness > 0.15:
+            return "metal", 0.6
+        elif tempo > 110 and energy > 0.6 and brightness > 3000:
+            return "pop", 0.5
+        elif tempo < 90 and harmonic_ratio > 0.8:
+            return "classical", 0.5
+        elif tempo > 100 and energy > 0.5 and brightness < 2000:
+            return "blues", 0.4
+        elif tempo > 130 and energy > 0.6:
+            return "disco", 0.4
+        elif tempo > 110 and energy > 0.7:
+            return "hiphop", 0.4
+        elif tempo > 100 and energy > 0.5:
+            return "country", 0.3
+        else:
+            return "pop", 0.3
+    
+    def _simple_classification(self, audio: np.ndarray) -> Tuple[str, float]:
+        """Simple classification based on basic audio features"""
+        # Calculate basic features
+        mfccs = librosa.feature.mfcc(y=audio, sr=self.sample_rate, n_mfcc=13)
+        spectral_centroid = librosa.feature.spectral_centroid(y=audio, sr=self.sample_rate)[0]
+        zero_crossing_rate = librosa.feature.zero_crossing_rate(audio)[0]
+        
+        # Simple heuristics
+        avg_mfcc = np.mean(mfccs, axis=1)
+        avg_centroid = np.mean(spectral_centroid)
+        avg_zcr = np.mean(zero_crossing_rate)
+        
+        # Classification based on feature patterns
+        if avg_centroid > 3000 and avg_zcr > 0.1:
+            return "rock", 0.4
+        elif avg_centroid < 1500 and avg_zcr < 0.05:
+            return "jazz", 0.4
+        elif avg_centroid > 2500:
+            return "pop", 0.4
+        elif avg_zcr > 0.15:
+            return "metal", 0.4
+        else:
+            return "pop", 0.3
     
     def analyze_audio_characteristics(self, audio: np.ndarray) -> Dict:
         """
@@ -606,92 +690,129 @@ class AdvancedAudioProcessor:
             results: Results from process_audio_file_advanced
             save_path: Path to save visualization
         """
-        # Set matplotlib backend to non-interactive
-        plt.switch_backend('Agg')
-        
-        fig, axes = plt.subplots(3, 2, figsize=(15, 12))
-        
-        # Original vs Processed audio
-        time_axis = np.linspace(0, len(results['original_audio'])/self.sample_rate, 
-                               len(results['original_audio']))
-        
-        # Limit display to first 5 seconds
-        max_samples = min(22050 * 5, len(results['original_audio']))
-        
-        axes[0, 0].plot(time_axis[:max_samples], results['original_audio'][:max_samples], 
-                       label='Original', alpha=0.7)
-        axes[0, 0].set_title('Original Audio')
-        axes[0, 0].set_xlabel('Time (s)')
-        axes[0, 0].set_ylabel('Amplitude')
-        axes[0, 0].legend()
-        axes[0, 0].grid(True)
-        
-        axes[0, 1].plot(time_axis[:max_samples], results['processed_audio'][:max_samples], 
-                       label='Processed', alpha=0.7, color='orange')
-        axes[0, 1].set_title('Processed Audio')
-        axes[0, 1].set_xlabel('Time (s)')
-        axes[0, 1].set_ylabel('Amplitude')
-        axes[0, 1].legend()
-        axes[0, 1].grid(True)
-        
-        # Frequency domain comparison
-        fft_original = np.abs(np.fft.fft(results['original_audio']))
-        fft_processed = np.abs(np.fft.fft(results['processed_audio']))
-        freq_axis = np.fft.fftfreq(len(results['original_audio']), 1/self.sample_rate)
-        
-        positive_freqs = freq_axis > 0
-        axes[1, 0].plot(freq_axis[positive_freqs], fft_original[positive_freqs], 
-                       label='Original')
-        axes[1, 0].set_title('Original Audio (Frequency Domain)')
-        axes[1, 0].set_xlabel('Frequency (Hz)')
-        axes[1, 0].set_ylabel('Magnitude')
-        axes[1, 0].legend()
-        axes[1, 0].grid(True)
-        axes[1, 0].set_xlim(0, 5000)
-        
-        axes[1, 1].plot(freq_axis[positive_freqs], fft_processed[positive_freqs], 
-                       label='Processed', color='orange')
-        axes[1, 1].set_title('Processed Audio (Frequency Domain)')
-        axes[1, 1].set_xlabel('Frequency (Hz)')
-        axes[1, 1].set_ylabel('Magnitude')
-        axes[1, 1].legend()
-        axes[1, 1].grid(True)
-        axes[1, 1].set_xlim(0, 5000)
-        
-        # Genre probabilities
-        if 'additional_info' in results and 'all_probabilities' in results['additional_info']:
-            genres = list(results['additional_info']['all_probabilities'].keys())
-            probabilities = list(results['additional_info']['all_probabilities'].values())
+        try:
+            # Set matplotlib backend to non-interactive
+            import matplotlib
+            matplotlib.use('Agg')
+            import matplotlib.pyplot as plt
             
-            axes[2, 0].bar(genres, probabilities, color='skyblue')
-            axes[2, 0].set_title('Genre Classification Probabilities')
-            axes[2, 0].set_xlabel('Genre')
-            axes[2, 0].set_ylabel('Probability')
-            axes[2, 0].tick_params(axis='x', rotation=45)
-            axes[2, 0].grid(True)
-        
-        # Audio characteristics
-        if 'analysis' in results:
-            analysis = results['analysis']
-            characteristics = ['Tempo', 'Energy', 'Brightness', 'Harmonic Ratio']
-            values = [analysis.get('tempo', 0), analysis.get('energy', 0), 
-                     analysis.get('brightness', 0), analysis.get('harmonic_ratio', 0)]
+            # Clear any existing plots
+            plt.clf()
+            plt.close('all')
             
-            axes[2, 1].bar(characteristics, values, color='lightgreen')
-            axes[2, 1].set_title('Audio Characteristics')
-            axes[2, 1].set_ylabel('Value')
-            axes[2, 1].grid(True)
+            fig, axes = plt.subplots(3, 2, figsize=(15, 12))
+            
+            # Original vs Processed audio
+            time_axis = np.linspace(0, len(results['original_audio'])/self.sample_rate, 
+                                   len(results['original_audio']))
+            
+            # Limit display to first 5 seconds
+            max_samples = min(22050 * 5, len(results['original_audio']))
+            
+            axes[0, 0].plot(time_axis[:max_samples], results['original_audio'][:max_samples], 
+                           label='Original', alpha=0.7)
+            axes[0, 0].set_title('Original Audio')
+            axes[0, 0].set_xlabel('Time (s)')
+            axes[0, 0].set_ylabel('Amplitude')
+            axes[0, 0].legend()
+            axes[0, 0].grid(True)
+            
+            axes[0, 1].plot(time_axis[:max_samples], results['processed_audio'][:max_samples], 
+                           label='Processed', alpha=0.7, color='orange')
+            axes[0, 1].set_title('Processed Audio')
+            axes[0, 1].set_xlabel('Time (s)')
+            axes[0, 1].set_ylabel('Amplitude')
+            axes[0, 1].legend()
+            axes[0, 1].grid(True)
+            
+            # Frequency domain comparison
+            fft_original = np.abs(np.fft.fft(results['original_audio']))
+            fft_processed = np.abs(np.fft.fft(results['processed_audio']))
+            freq_axis = np.fft.fftfreq(len(results['original_audio']), 1/self.sample_rate)
+            
+            positive_freqs = freq_axis > 0
+            axes[1, 0].plot(freq_axis[positive_freqs], fft_original[positive_freqs], 
+                           label='Original')
+            axes[1, 0].set_title('Original Audio (Frequency Domain)')
+            axes[1, 0].set_xlabel('Frequency (Hz)')
+            axes[1, 0].set_ylabel('Magnitude')
+            axes[1, 0].legend()
+            axes[1, 0].grid(True)
+            axes[1, 0].set_xlim(0, 5000)
+            
+            axes[1, 1].plot(freq_axis[positive_freqs], fft_processed[positive_freqs], 
+                           label='Processed', color='orange')
+            axes[1, 1].set_title('Processed Audio (Frequency Domain)')
+            axes[1, 1].set_xlabel('Frequency (Hz)')
+            axes[1, 1].set_ylabel('Magnitude')
+            axes[1, 1].legend()
+            axes[1, 1].grid(True)
+            axes[1, 1].set_xlim(0, 5000)
+            
+            # Genre probabilities
+            if 'additional_info' in results and 'all_probabilities' in results['additional_info']:
+                genres = list(results['additional_info']['all_probabilities'].keys())
+                probabilities = list(results['additional_info']['all_probabilities'].values())
+                
+                axes[2, 0].bar(genres, probabilities, color='skyblue')
+                axes[2, 0].set_title('Genre Classification Probabilities')
+                axes[2, 0].set_xlabel('Genre')
+                axes[2, 0].set_ylabel('Probability')
+                axes[2, 0].tick_params(axis='x', rotation=45)
+                axes[2, 0].grid(True)
+            
+            # Audio characteristics
+            if 'analysis' in results:
+                analysis = results['analysis']
+                characteristics = ['Tempo', 'Energy', 'Brightness', 'Harmonic Ratio']
+                values = [analysis.get('tempo', 0), analysis.get('energy', 0), 
+                         analysis.get('brightness', 0), analysis.get('harmonic_ratio', 0)]
+                
+                axes[2, 1].bar(characteristics, values, color='lightgreen')
+                axes[2, 1].set_title('Audio Characteristics')
+                axes[2, 1].set_ylabel('Value')
+                axes[2, 1].grid(True)
         
-        plt.tight_layout()
-        
-        if save_path:
-            # Ensure directory exists
-            os.makedirs(os.path.dirname(save_path), exist_ok=True)
-            plt.savefig(save_path, dpi=300, bbox_inches='tight')
-            print(f"📊 Visualization saved to: {save_path}")
-        
-        # Don't show plot in non-interactive mode
-        plt.close()
+            plt.tight_layout()
+            
+            if save_path:
+                # Ensure directory exists
+                os.makedirs(os.path.dirname(save_path), exist_ok=True)
+                # Force draw the figure before saving
+                fig.canvas.draw()
+                plt.savefig(save_path, dpi=300, bbox_inches='tight')
+                print(f"📊 Visualization saved to: {save_path}")
+            
+            # Close the figure properly
+            plt.close(fig)
+            plt.close('all')
+            
+        except Exception as e:
+            print(f"⚠️ Visualization creation failed: {e}")
+            print("Continuing without visualization...")
+            # Create a simple fallback visualization
+            if save_path:
+                try:
+                    import matplotlib
+                    matplotlib.use('Agg')
+                    import matplotlib.pyplot as plt
+                    
+                    fig, ax = plt.subplots(1, 1, figsize=(8, 6))
+                    ax.text(0.5, 0.5, f'Audio Processing Completed\nGenre: {results.get("genre", "Unknown")}\nConfidence: {results.get("confidence", 0):.1%}', 
+                           ha='center', va='center', fontsize=16)
+                    ax.set_xlim(0, 1)
+                    ax.set_ylim(0, 1)
+                    ax.axis('off')
+                    
+                    os.makedirs(os.path.dirname(save_path), exist_ok=True)
+                    fig.canvas.draw()
+                    plt.savefig(save_path, dpi=150, bbox_inches='tight')
+                    plt.close(fig)
+                    plt.close('all')
+                    print(f"📊 Fallback visualization saved to: {save_path}")
+                except Exception as fallback_error:
+                    print(f"❌ Even fallback visualization failed: {fallback_error}")
+                    pass
 
 def main():
     """Test advanced audio processor"""

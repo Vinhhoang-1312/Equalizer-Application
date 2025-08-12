@@ -66,7 +66,7 @@ def create_missing_models():
             
             # Create model
             autoencoder = tf.keras.Model(input_layer, decoded)
-            autoencoder.compile(optimizer='adam', loss='mse', metrics=['mae'])
+            autoencoder.compile(optimizer='adam', loss=tf.keras.losses.MeanSquaredError(), metrics=['mae'])
             
             return autoencoder
         

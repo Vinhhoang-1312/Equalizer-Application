@@ -2,6 +2,65 @@
 
 Ứng dụng xử lý âm thanh hoàn chỉnh với các chức năng: Equalizer 6-band, Giảm nhiễu bằng Machine Learning, và Phân loại thể loại nhạc với độ chính xác >85%.
 
+
+ LUỒNG CHẠY CHÍNH:
+1. Khi chạy python main.py:
+
+main.py
+├── Kiểm tra dependencies
+├── Nếu có --web → Chạy web_app.py
+├── Nếu có --train → Huấn luyện models
+├── Nếu có --realtime → Xử lý real-time
+├── Nếu có --demo → Chạy demo
+└── Mặc định → Chạy web app (run_web_app())
+
+
+
+2. Khi chạy python web_app.py:
+
+
+web_app.py
+├── Khởi tạo Flask app + SocketIO
+├── Load AdvancedAudioProcessor
+├── Load SpotifyIntegration
+├── Tạo thư mục uploads/, static/results/
+└── Chạy server tại http://localhost:5000
+
+3. Luồng xử lý âm thanh:
+
+User upload file → web_app.py/upload
+├── Lưu file vào uploads/
+├── Gọi AdvancedAudioProcessor.process_audio_file_advanced()
+│   ├── Load audio với librosa
+│   ├── Áp dụng equalizer (6-band)
+│   ├── Giảm nhiễu (autoencoder/wiener/spectral)
+│   ├── Phân loại thể loại nhạc
+│   └── Phân tích đặc tính âm thanh
+├── Lưu file đã xử lý vào static/results/
+├── Tạo visualization
+└── Trả về kết quả JSON
+
+🏗️ CẤU TRÚC THÀNH PHẦN:
+Core Modules:
+main.py - Entry point, CLI interface
+web_app.py - Flask web server
+advanced_audio_processor.py - Xử lý âm thanh chính
+spotify_integration.py - Tích hợp Spotify API
+Models:
+models/advanced_genre_classifier.pkl - Phân loại thể loại
+models/advanced_noise_reducer.h5 - Giảm nhiễu ML
+models/advanced_scaler.pkl - Chuẩn hóa features
+models/feature_scaler.pkl - Chuẩn hóa features
+Data:
+data/gtzan/ - Dataset training (10 thể loại)
+uploads/ - Files người dùng upload
+static/results/ - Files đã xử lý + visualizations
+Templates:
+templates/index.html - Giao diện chính
+
+
+
+
 ## 🎵 Tính năng chính
 
 ### 1. Equalizer 6-Band (Bộ cân bằng âm nâng cao)

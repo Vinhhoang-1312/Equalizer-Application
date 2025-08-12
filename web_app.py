@@ -16,6 +16,7 @@ import matplotlib
 matplotlib.use('Agg')
 import matplotlib.pyplot as plt
 import seaborn as sns
+import librosa.display
 from dotenv import load_dotenv
 
 # Load environment variables from .env file
@@ -102,7 +103,31 @@ def upload_file():
             # Create visualization
             viz_filename = f"analysis_{filename.rsplit('.', 1)[0]}.png"
             viz_path = os.path.join('static/results', viz_filename)
-            audio_processor.create_visualization(results, viz_path)
+            try:
+                audio_processor.create_visualization(results, viz_path)
+            except Exception as viz_error:
+                print(f"⚠️ Main visualization failed: {viz_error}")
+                # Create a simple text-based visualization as fallback
+                try:
+                    plt.clf()
+                    plt.close('all')
+                    fig, ax = plt.subplots(1, 1, figsize=(10, 6))
+                    ax.text(0.5, 0.7, f'Audio Processing Completed', ha='center', va='center', fontsize=20, weight='bold')
+                    ax.text(0.5, 0.5, f'Genre: {results["genre"]}', ha='center', va='center', fontsize=16)
+                    ax.text(0.5, 0.3, f'Confidence: {results["confidence"]:.1%}', ha='center', va='center', fontsize=16)
+                    ax.set_xlim(0, 1)
+                    ax.set_ylim(0, 1)
+                    ax.axis('off')
+                    
+                    os.makedirs('static/results', exist_ok=True)
+                    fig.canvas.draw()
+                    plt.savefig(viz_path, dpi=150, bbox_inches='tight')
+                    plt.close(fig)
+                    plt.close('all')
+                    print(f"📊 Simple fallback visualization created: {viz_path}")
+                except Exception as fallback_error:
+                    print(f"❌ Even simple visualization failed: {fallback_error}")
+                    viz_filename = None
             
             # Debug output
             print(f"Web app debug - Genre: {results['genre']}")
@@ -124,7 +149,7 @@ def upload_file():
                 'success': True,
                 'original_file': filename,
                 'processed_file': output_filename,
-                'visualization': viz_filename,
+                'visualization': viz_filename if viz_filename else None,
                 'genre': results['genre'],
                 'confidence': f"{results['confidence']:.1%}",
                 'analysis': results['analysis'],
@@ -271,38 +296,65 @@ def analyze_audio():
             analysis = audio_processor.analyze_audio_characteristics(audio)
             
             # Create detailed analysis visualization
-            fig, axes = plt.subplots(2, 2, figsize=(12, 10))
-            
-            # Waveform
-            time_axis = np.linspace(0, len(audio)/sr, len(audio))
-            axes[0, 0].plot(time_axis[:22050], audio[:22050])
-            axes[0, 0].set_title('Waveform')
-            axes[0, 0].set_xlabel('Time (s)')
-            axes[0, 0].set_ylabel('Amplitude')
-            axes[0, 0].grid(True)
-            
-            # Spectrogram
-            D = librosa.amplitude_to_db(np.abs(librosa.stft(audio)), ref=np.max)
-            librosa.display.specshow(D, sr=sr, x_axis='time', y_axis='log', ax=axes[0, 1])
-            axes[0, 1].set_title('Spectrogram')
-            
-            # MFCC
-            mfccs = librosa.feature.mfcc(y=audio, sr=sr, n_mfcc=13)
-            librosa.display.specshow(mfccs, sr=sr, x_axis='time', ax=axes[1, 0])
-            axes[1, 0].set_title('MFCC')
-            
-            # Chromagram
-            chroma = librosa.feature.chroma_stft(y=audio, sr=sr)
-            librosa.display.specshow(chroma, sr=sr, x_axis='time', y_axis='chroma', ax=axes[1, 1])
-            axes[1, 1].set_title('Chroma')
-            
-            plt.tight_layout()
-            
-            # Save visualization
-            viz_filename = f"detailed_analysis_{filename.rsplit('.', 1)[0]}.png"
-            viz_path = os.path.join('static/results', viz_filename)
-            plt.savefig(viz_path, dpi=300, bbox_inches='tight')
-            plt.close()
+            try:
+                # Clear any existing plots
+                plt.clf()
+                plt.close('all')
+                
+                fig, axes = plt.subplots(2, 2, figsize=(12, 10))
+                
+                # Waveform
+                time_axis = np.linspace(0, len(audio)/sr, len(audio))
+                axes[0, 0].plot(time_axis[:22050], audio[:22050])
+                axes[0, 0].set_title('Waveform')
+                axes[0, 0].set_xlabel('Time (s)')
+                axes[0, 0].set_ylabel('Amplitude')
+                axes[0, 0].grid(True)
+                
+                # Spectrogram
+                D = librosa.amplitude_to_db(np.abs(librosa.stft(audio)), ref=np.max)
+                librosa.display.specshow(D, sr=sr, x_axis='time', y_axis='log', ax=axes[0, 1])
+                axes[0, 1].set_title('Spectrogram')
+                
+                # MFCC
+                mfccs = librosa.feature.mfcc(y=audio, sr=sr, n_mfcc=13)
+                librosa.display.specshow(mfccs, sr=sr, x_axis='time', ax=axes[1, 0])
+                axes[1, 0].set_title('MFCC')
+                
+                # Chromagram
+                chroma = librosa.feature.chroma_stft(y=audio, sr=sr)
+                librosa.display.specshow(chroma, sr=sr, x_axis='time', y_axis='chroma', ax=axes[1, 1])
+                axes[1, 1].set_title('Chroma')
+                
+                plt.tight_layout()
+                
+                # Save visualization
+                viz_filename = f"detailed_analysis_{filename.rsplit('.', 1)[0]}.png"
+                viz_path = os.path.join('static/results', viz_filename)
+                
+                # Force draw before saving
+                fig.canvas.draw()
+                plt.savefig(viz_path, dpi=300, bbox_inches='tight')
+                plt.close(fig)
+                plt.close('all')
+                
+            except Exception as viz_error:
+                print(f"⚠️ Detailed visualization failed: {viz_error}")
+                # Create simple fallback
+                viz_filename = f"detailed_analysis_{filename.rsplit('.', 1)[0]}.png"
+                viz_path = os.path.join('static/results', viz_filename)
+                
+                fig, ax = plt.subplots(1, 1, figsize=(8, 6))
+                ax.text(0.5, 0.5, f'Audio Analysis Completed\nFile: {filename}', 
+                       ha='center', va='center', fontsize=16)
+                ax.set_xlim(0, 1)
+                ax.set_ylim(0, 1)
+                ax.axis('off')
+                
+                fig.canvas.draw()
+                plt.savefig(viz_path, dpi=150, bbox_inches='tight')
+                plt.close(fig)
+                plt.close('all')
             
             return jsonify({
                 'success': True,
@@ -330,15 +382,22 @@ def download_file(filename):
 @app.route('/api/status')
 def status():
     """Get application status"""
-    return jsonify({
-        'status': 'running',
-        'real_time_processing': real_time_processing,
-        'models_loaded': {
-            'noise_reducer': audio_processor.noise_reducer is not None,
-            'genre_classifier': audio_processor.genre_classifier is not None
-        },
-        'spotify_available': spotify_integration.sp is not None
-    })
+    try:
+        return jsonify({
+            'status': 'running',
+            'real_time_processing': real_time_processing,
+            'models_loaded': {
+                'noise_reducer': audio_processor.noise_reducer is not None,
+                'genre_classifier': audio_processor.genre_classifier is not None
+            },
+            'spotify_available': not spotify_integration.demo_mode
+        })
+    except Exception as e:
+        print(f"❌ Error in /api/status: {e}")
+        return jsonify({
+            'status': 'error',
+            'error': str(e)
+        }), 500
 
 if __name__ == '__main__':
     print("🌐 Khởi động Advanced Audio Processing Web App...")
