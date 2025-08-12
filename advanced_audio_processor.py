@@ -133,133 +133,120 @@ class AdvancedAudioProcessor:
             audio: Input audio array
         
         Returns:
-            Feature vector with 100+ features
+            Feature vector
         """
         features = []
         
-        # Basic MFCC features (26 features)
-        mfccs = librosa.feature.mfcc(y=audio, sr=self.sample_rate, n_mfcc=13)
-        features.extend([np.mean(mfccs[i]) for i in range(13)])
-        features.extend([np.std(mfccs[i]) for i in range(13)])
-        
-        # Delta and Delta-Delta MFCC (26 features)
-        mfcc_delta = librosa.feature.delta(mfccs)
-        mfcc_delta2 = librosa.feature.delta(mfccs, order=2)
-        features.extend([np.mean(mfcc_delta[i]) for i in range(13)])
-        features.extend([np.mean(mfcc_delta2[i]) for i in range(13)])
-        
-        # Spectral features (12 features)
-        spectral_centroids = librosa.feature.spectral_centroid(y=audio, sr=self.sample_rate)[0]
-        features.append(np.mean(spectral_centroids))
-        features.append(np.std(spectral_centroids))
-        
-        spectral_rolloff = librosa.feature.spectral_rolloff(y=audio, sr=self.sample_rate)[0]
-        features.append(np.mean(spectral_rolloff))
-        features.append(np.std(spectral_rolloff))
-        
-        spectral_bandwidth = librosa.feature.spectral_bandwidth(y=audio, sr=self.sample_rate)[0]
-        features.append(np.mean(spectral_bandwidth))
-        features.append(np.std(spectral_bandwidth))
-        
-        spectral_contrast = librosa.feature.spectral_contrast(y=audio, sr=self.sample_rate)
-        features.append(np.mean(spectral_contrast))
-        features.append(np.std(spectral_contrast))
-        
-        spectral_flatness = librosa.feature.spectral_flatness(y=audio)[0]
-        features.append(np.mean(spectral_flatness))
-        features.append(np.std(spectral_flatness))
-        
-        # Chroma features (24 features)
-        chroma = librosa.feature.chroma_stft(y=audio, sr=self.sample_rate)
-        features.extend([np.mean(chroma[i]) for i in range(12)])
-        features.extend([np.std(chroma[i]) for i in range(12)])
-        
-        # Tonnetz features (6 features)
-        tonnetz = librosa.feature.tonnetz(y=audio, sr=self.sample_rate)
-        features.extend([np.mean(tonnetz[i]) for i in range(6)])
-        
-        # Rhythm features (8 features)
-        tempo, beats = librosa.beat.beat_track(y=audio, sr=self.sample_rate)
-        features.append(tempo)
-        
-        # Beat strength
-        onset_env = librosa.onset.onset_strength(y=audio, sr=self.sample_rate)
-        features.append(np.mean(onset_env))
-        features.append(np.std(onset_env))
-        
-        # Zero crossing rate (2 features)
-        zcr = librosa.feature.zero_crossing_rate(audio)[0]
-        features.append(np.mean(zcr))
-        features.append(np.std(zcr))
-        
-        # Root mean square energy (2 features)
-        rms = librosa.feature.rms(y=audio)[0]
-        features.append(np.mean(rms))
-        features.append(np.std(rms))
-        
-        # Harmonic and percussive components (4 features)
-        harmonic, percussive = librosa.effects.hpss(audio)
-        features.append(np.mean(harmonic))
-        features.append(np.std(harmonic))
-        features.append(np.mean(percussive))
-        features.append(np.std(percussive))
-        
-        # Spectral features (6 features)
-        spectral_centroid = librosa.feature.spectral_centroid(y=audio, sr=self.sample_rate)[0]
-        features.append(np.mean(spectral_centroid))
-        features.append(np.std(spectral_centroid))
-        
-        # Spectral rolloff
-        spectral_rolloff = librosa.feature.spectral_rolloff(y=audio, sr=self.sample_rate)[0]
-        features.append(np.mean(spectral_rolloff))
-        features.append(np.std(spectral_rolloff))
-        
-        # Spectral bandwidth
-        spectral_bandwidth = librosa.feature.spectral_bandwidth(y=audio, sr=self.sample_rate)[0]
-        features.append(np.mean(spectral_bandwidth))
-        features.append(np.std(spectral_bandwidth))
+        try:
+            # MFCC features (26 features)
+            mfccs = librosa.feature.mfcc(y=audio, sr=self.sample_rate, n_mfcc=13)
+            features.extend([np.mean(mfccs[i]) for i in range(13)])
+            features.extend([np.std(mfccs[i]) for i in range(13)])
+            
+            # Spectral features
+            spectral_centroids = librosa.feature.spectral_centroid(y=audio, sr=self.sample_rate)[0]
+            features.append(np.mean(spectral_centroids))
+            features.append(np.std(spectral_centroids))
+            
+            spectral_rolloff = librosa.feature.spectral_rolloff(y=audio, sr=self.sample_rate)[0]
+            features.append(np.mean(spectral_rolloff))
+            features.append(np.std(spectral_rolloff))
+            
+            spectral_bandwidth = librosa.feature.spectral_bandwidth(y=audio, sr=self.sample_rate)[0]
+            features.append(np.mean(spectral_bandwidth))
+            features.append(np.std(spectral_bandwidth))
+            
+            # Chroma features (24 features)
+            chroma = librosa.feature.chroma_stft(y=audio, sr=self.sample_rate)
+            features.extend([np.mean(chroma[i]) for i in range(12)])
+            features.extend([np.std(chroma[i]) for i in range(12)])
+            
+            # Zero crossing rate
+            zcr = librosa.feature.zero_crossing_rate(audio)[0]
+            features.append(np.mean(zcr))
+            features.append(np.std(zcr))
+            
+            # Root mean square energy
+            rms = librosa.feature.rms(y=audio)[0]
+            features.append(np.mean(rms))
+            features.append(np.std(rms))
+            
+            # Tempo and rhythm features
+            tempo, beats = librosa.beat.beat_track(y=audio, sr=self.sample_rate)
+            features.append(tempo)
+            features.append(len(beats))
+            
+            # Harmonic and percussive separation
+            harmonic, percussive = librosa.effects.hpss(audio)
+            harmonic_ratio = np.mean(harmonic**2) / (np.mean(harmonic**2) + np.mean(percussive**2))
+            features.append(harmonic_ratio)
+            
+            # Spectral contrast
+            contrast = librosa.feature.spectral_contrast(y=audio, sr=self.sample_rate)
+            features.extend([np.mean(contrast[i]) for i in range(7)])
+            features.extend([np.std(contrast[i]) for i in range(7)])
+            
+            # Tonnetz features
+            tonnetz = librosa.feature.tonnetz(y=harmonic, sr=self.sample_rate)
+            features.extend([np.mean(tonnetz[i]) for i in range(6)])
+            features.extend([np.std(tonnetz[i]) for i in range(6)])
+            
+            # Poly features
+            poly_features = librosa.feature.poly_features(y=audio, sr=self.sample_rate)
+            features.extend([np.mean(poly_features[i]) for i in range(2)])
+            features.extend([np.std(poly_features[i]) for i in range(2)])
+            
+        except Exception as e:
+            print(f"Error extracting advanced features: {e}")
+            # Return default features if extraction fails
+            features = [0.0] * 100  # Ensure consistent feature count
         
         return np.array(features)
     
     def extract_basic_features(self, audio: np.ndarray) -> np.ndarray:
         """
-        Extract basic audio features (compatible with trained model)
+        Extract basic audio features (fallback method)
         
         Args:
             audio: Input audio array
         
         Returns:
-            Feature vector with 52 features
+            Feature vector
         """
         features = []
         
-        # MFCC features (26 features)
-        mfccs = librosa.feature.mfcc(y=audio, sr=self.sample_rate, n_mfcc=13)
-        features.extend([np.mean(mfccs[i]) for i in range(13)])
-        features.extend([np.std(mfccs[i]) for i in range(13)])
-        
-        # Spectral features (4 features)
-        spectral_centroids = librosa.feature.spectral_centroid(y=audio, sr=self.sample_rate)[0]
-        features.append(np.mean(spectral_centroids))
-        features.append(np.std(spectral_centroids))
-        
-        spectral_rolloff = librosa.feature.spectral_rolloff(y=audio, sr=self.sample_rate)[0]
-        features.append(np.mean(spectral_rolloff))
-        features.append(np.std(spectral_rolloff))
-        
-        # Chroma features (12 features)
-        chroma = librosa.feature.chroma_stft(y=audio, sr=self.sample_rate)
-        features.extend([np.mean(chroma[i]) for i in range(12)])
-        
-        # Zero crossing rate (2 features)
-        zcr = librosa.feature.zero_crossing_rate(audio)[0]
-        features.append(np.mean(zcr))
-        features.append(np.std(zcr))
-        
-        # Root mean square energy (2 features)
-        rms = librosa.feature.rms(y=audio)[0]
-        features.append(np.mean(rms))
-        features.append(np.std(rms))
+        try:
+            # MFCC features
+            mfccs = librosa.feature.mfcc(y=audio, sr=self.sample_rate, n_mfcc=13)
+            features.extend([np.mean(mfccs[i]) for i in range(13)])
+            features.extend([np.std(mfccs[i]) for i in range(13)])
+            
+            # Spectral features
+            spectral_centroids = librosa.feature.spectral_centroid(y=audio, sr=self.sample_rate)[0]
+            features.append(np.mean(spectral_centroids))
+            features.append(np.std(spectral_centroids))
+            
+            spectral_rolloff = librosa.feature.spectral_rolloff(y=audio, sr=self.sample_rate)[0]
+            features.append(np.mean(spectral_rolloff))
+            features.append(np.std(spectral_rolloff))
+            
+            # Chroma features
+            chroma = librosa.feature.chroma_stft(y=audio, sr=self.sample_rate)
+            features.extend([np.mean(chroma[i]) for i in range(12)])
+            
+            # Zero crossing rate
+            zcr = librosa.feature.zero_crossing_rate(audio)[0]
+            features.append(np.mean(zcr))
+            features.append(np.std(zcr))
+            
+            # Root mean square energy
+            rms = librosa.feature.rms(y=audio)[0]
+            features.append(np.mean(rms))
+            features.append(np.std(rms))
+            
+        except Exception as e:
+            print(f"Error extracting basic features: {e}")
+            features = [0.0] * 50  # Ensure consistent feature count
         
         return np.array(features)
     
@@ -395,7 +382,7 @@ class AdvancedAudioProcessor:
     
     def advanced_genre_classification(self, audio: np.ndarray) -> Tuple[str, float, Dict]:
         """
-        Advanced genre classification with multiple fallback methods
+        Advanced genre classification using multiple methods
         
         Args:
             audio: Input audio array
@@ -406,7 +393,32 @@ class AdvancedAudioProcessor:
         genres = ['blues', 'classical', 'country', 'disco', 'hiphop', 
                  'jazz', 'metal', 'pop', 'reggae', 'rock']
         
-        # Method 1: Try trained model first
+        # Method 1: Try trained model with advanced features first
+        if self.genre_classifier is not None:
+            try:
+                features = self.extract_advanced_features(audio)
+                
+                if self.feature_scaler is not None:
+                    features = self.feature_scaler.transform(features.reshape(1, -1))
+                
+                prediction = self.genre_classifier.predict_proba(features.reshape(1, -1))[0]
+                genre_idx = np.argmax(prediction)
+                confidence = prediction[genre_idx]
+                
+                # Only return if confidence is reasonable
+                if confidence > 0.15:
+                    additional_info = {
+                        'method': 'advanced_trained_model',
+                        'all_probabilities': dict(zip(genres, prediction.tolist())),
+                        'second_choice': genres[np.argsort(prediction)[-2]],
+                        'second_confidence': float(np.sort(prediction)[-2]),
+                        'feature_vector': features.flatten().tolist()
+                    }
+                    return genres[genre_idx], confidence, additional_info
+            except Exception as e:
+                print(f"⚠️ Advanced trained model failed: {e}")
+        
+        # Method 2: Try basic features with trained model
         if self.genre_classifier is not None:
             try:
                 features = self.extract_basic_features(audio)
@@ -418,10 +430,9 @@ class AdvancedAudioProcessor:
                 genre_idx = np.argmax(prediction)
                 confidence = prediction[genre_idx]
                 
-                # Only return if confidence is reasonable
                 if confidence > 0.2:
                     additional_info = {
-                        'method': 'trained_model',
+                        'method': 'basic_trained_model',
                         'all_probabilities': dict(zip(genres, prediction.tolist())),
                         'second_choice': genres[np.argsort(prediction)[-2]],
                         'second_confidence': float(np.sort(prediction)[-2]),
@@ -429,24 +440,24 @@ class AdvancedAudioProcessor:
                     }
                     return genres[genre_idx], confidence, additional_info
             except Exception as e:
-                print(f"⚠️ Trained model failed: {e}")
+                print(f"⚠️ Basic trained model failed: {e}")
         
-        # Method 2: Rule-based classification using audio characteristics
+        # Method 3: Rule-based classification using audio characteristics
         try:
             analysis = self.analyze_audio_characteristics(audio)
-            genre, confidence = self._rule_based_classification(analysis)
+            genre, confidence = self._improved_rule_based_classification(analysis)
             
             if confidence > 0.3:
                 additional_info = {
-                    'method': 'rule_based',
+                    'method': 'improved_rule_based',
                     'analysis': analysis,
                     'all_probabilities': {genre: confidence}
                 }
                 return genre, confidence, additional_info
         except Exception as e:
-            print(f"⚠️ Rule-based classification failed: {e}")
+            print(f"⚠️ Improved rule-based classification failed: {e}")
         
-        # Method 3: Simple feature-based classification
+        # Method 4: Simple feature-based classification
         try:
             genre, confidence = self._simple_classification(audio)
             
@@ -461,33 +472,37 @@ class AdvancedAudioProcessor:
         # Fallback: Return most common genre with low confidence
         return "pop", 0.1, {'method': 'fallback', 'all_probabilities': {'pop': 0.1}}
     
-    def _rule_based_classification(self, analysis: Dict) -> Tuple[str, float]:
-        """Rule-based genre classification using audio characteristics"""
+    def _improved_rule_based_classification(self, analysis: Dict) -> Tuple[str, float]:
+        """Improved rule-based genre classification using audio characteristics"""
         tempo = analysis.get('tempo', 120)
         energy = analysis.get('energy', 0.5)
         brightness = analysis.get('brightness', 2000)
         harmonic_ratio = analysis.get('harmonic_ratio', 0.5)
         noisiness = analysis.get('noisiness', 0.1)
+        dynamics = analysis.get('dynamics', 0.1)
+        spectral_rolloff = analysis.get('spectral_rolloff', 4000)
         
-        # Simple rules based on audio characteristics
-        if tempo > 140 and energy > 0.7:
+        # More sophisticated rules based on audio characteristics
+        if tempo > 140 and energy > 0.7 and noisiness > 0.15:
+            return "metal", 0.7
+        elif tempo > 140 and energy > 0.7 and noisiness < 0.15:
             return "rock", 0.6
-        elif tempo < 100 and harmonic_ratio > 0.7:
-            return "jazz", 0.5
-        elif tempo > 120 and energy > 0.8 and noisiness > 0.15:
-            return "metal", 0.6
-        elif tempo > 110 and energy > 0.6 and brightness > 3000:
+        elif tempo < 100 and harmonic_ratio > 0.7 and brightness < 2000:
+            return "jazz", 0.6
+        elif tempo < 90 and harmonic_ratio > 0.8 and dynamics < 0.1:
+            return "classical", 0.6
+        elif tempo > 120 and energy > 0.6 and brightness > 3000:
             return "pop", 0.5
-        elif tempo < 90 and harmonic_ratio > 0.8:
-            return "classical", 0.5
+        elif tempo > 130 and energy > 0.6 and brightness > 2500:
+            return "disco", 0.5
+        elif tempo > 110 and energy > 0.7 and noisiness > 0.1:
+            return "hiphop", 0.5
         elif tempo > 100 and energy > 0.5 and brightness < 2000:
             return "blues", 0.4
-        elif tempo > 130 and energy > 0.6:
-            return "disco", 0.4
-        elif tempo > 110 and energy > 0.7:
-            return "hiphop", 0.4
-        elif tempo > 100 and energy > 0.5:
-            return "country", 0.3
+        elif tempo > 100 and energy > 0.5 and harmonic_ratio > 0.6:
+            return "country", 0.4
+        elif tempo > 100 and energy > 0.5 and spectral_rolloff < 3000:
+            return "reggae", 0.4
         else:
             return "pop", 0.3
     
