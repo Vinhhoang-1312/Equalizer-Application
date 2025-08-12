@@ -545,7 +545,7 @@ class AdvancedModelTrainer:
             if not os.path.isdir(genre_dir):
                 print(f"❌ Không tìm thấy thư mục: {genre_dir}")
                 continue
-            files = [f for f in os.listdir(genre_dir) if f.endswith('.wav')]
+            files = [f for f in os.listdir(genre_dir) if f.endswith('.wav')][:20]  # Lấy tối đa 20 file đầu tiên
             print(f"  Đọc {len(files)} file cho {genre}")
             for fname in files:
                 file_path = os.path.join(genre_dir, fname)
