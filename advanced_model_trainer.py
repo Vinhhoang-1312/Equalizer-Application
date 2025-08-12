@@ -535,35 +535,52 @@ class AdvancedModelTrainer:
         return results
     
     def train_all_models(self):
-        """Huấn luyện tất cả mô hình"""
-        print("🎵 Bắt đầu huấn luyện tất cả mô hình...")
-        
-        # Create synthetic dataset
-        X, y = self.create_synthetic_dataset(samples_per_genre=200)
-        
+        """Huấn luyện tất cả mô hình từ dữ liệu thật trong data/gtzan (GTZAN)"""
+        print("🎵 Bắt đầu huấn luyện tất cả mô hình từ dữ liệu thật...")
+        data_dir = os.path.join('data', 'gtzan')
+        features_list = []
+        labels_list = []
+        for genre in self.genres:
+            genre_dir = os.path.join(data_dir, genre)
+            if not os.path.isdir(genre_dir):
+                print(f"❌ Không tìm thấy thư mục: {genre_dir}")
+                continue
+            files = [f for f in os.listdir(genre_dir) if f.endswith('.wav')]
+            print(f"  Đọc {len(files)} file cho {genre}")
+            for fname in files:
+                file_path = os.path.join(genre_dir, fname)
+                try:
+                    audio, _ = librosa.load(file_path, sr=self.sample_rate, mono=True)
+                    features = self.extract_advanced_features(audio)
+                    features_list.append(features)
+                    labels_list.append(genre)
+                except Exception as e:
+                    print(f"⚠️ Lỗi đọc {file_path}: {e}")
+        X = np.array(features_list)
+        y = np.array(labels_list)
+        print(f"✅ Tổng số mẫu: {len(y)}")
         # Train ensemble classifier
         classifier_results = self.train_ensemble_classifier(X, y)
-        
-        # Create clean audio samples for noise reduction
+        # Tạo clean audio cho noise reduction (lấy 20 file đầu mỗi genre)
         clean_audio_list = []
-        for genre in self.genres[:5]:  # Use first 5 genres
-            for i in range(20):
-                duration = 10
-                t = np.linspace(0, duration, int(self.sample_rate * duration))
-                audio = self._generate_genre_audio(genre, t)
-                clean_audio_list.append(audio)
-        
+        for genre in self.genres[:5]:
+            genre_dir = os.path.join(data_dir, genre)
+            files = [f for f in os.listdir(genre_dir) if f.endswith('.wav')][:20]
+            for fname in files:
+                file_path = os.path.join(genre_dir, fname)
+                try:
+                    audio, _ = librosa.load(file_path, sr=self.sample_rate, mono=True)
+                    clean_audio_list.append(audio)
+                except Exception as e:
+                    print(f"⚠️ Lỗi đọc {file_path}: {e}")
         # Train noise reducer
         noise_reducer = self.train_noise_reducer(clean_audio_list)
-        
         # Evaluate models
         evaluation_results = self.evaluate_models(X, y)
-        
         print("🎉 Huấn luyện hoàn tất!")
         print(f"📊 Kết quả cuối cùng:")
         print(f"  - Accuracy: {evaluation_results['accuracy']:.3f}")
         print(f"  - Cross-validation: {evaluation_results['cv_mean']:.3f}")
-        
         return {
             'classifier_results': classifier_results,
             'noise_reducer': noise_reducer,

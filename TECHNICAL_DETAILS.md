@@ -3,18 +3,21 @@
 ## 🎵 **1. CÁCH ĐỌC ÂM THANH**
 
 ### **Bước 1: Đọc file âm thanh**
+
 ```python
 # Trong advanced_audio_processor.py, dòng 580
 audio, sr = librosa.load(file_path, sr=self.sample_rate)
 ```
 
 **Chuyện gì xảy ra:**
+
 - `librosa.load()` đọc file âm thanh (.wav, .mp3, .flac)
 - Chuyển đổi thành **mảng số** (NumPy array) biểu diễn biên độ sóng âm
 - `sr = 22050 Hz` (tốc độ lấy mẫu)
 - Ví dụ: 1 giây âm thanh = 22050 số
 
 ### **Bước 2: Chuyển sang miền tần số**
+
 ```python
 # Trong advanced_equalizer(), dòng 80-82
 fft_audio = fft(audio)  # Fast Fourier Transform
@@ -22,6 +25,7 @@ freqs = np.fft.fftfreq(len(audio), 1/self.sample_rate)
 ```
 
 **Chuyện gì xảy ra:**
+
 - **FFT** chuyển đổi từ miền thời gian → miền tần số
 - Âm thanh = tổng của nhiều sóng sin với tần số khác nhau
 - Kết quả: biểu diễn năng lượng ở mỗi tần số (20Hz - 20000Hz)
@@ -58,6 +62,7 @@ freq_response[air_mask] *= air_gain
 ```
 
 **Cách hoạt động:**
+
 - Tăng/giảm biên độ của từng dải tần số
 - `gain = 1.0` = không thay đổi
 - `gain = 2.0` = tăng gấp đôi
@@ -100,28 +105,30 @@ prediction = self.genre_classifier.predict_proba(features.reshape(1, -1))[0]
 genre_idx = np.argmax(prediction)
 confidence = prediction[genre_idx]
 
-genres = ['blues', 'classical', 'country', 'disco', 'hiphop', 
+genres = ['blues', 'classical', 'country', 'disco', 'hiphop',
          'jazz', 'metal', 'pop', 'reggae', 'rock']
 ```
 
 ### **Các đặc trưng quan trọng cho từng thể loại:**
 
-| Thể loại | Đặc trưng chính |
-|----------|-----------------|
-| **Rock** | Spectral centroid cao (>3000), ZCR cao (>0.1), energy cao |
-| **Jazz** | Spectral centroid thấp (<1500), ZCR thấp (<0.05), harmonic ratio cao |
-| **Pop** | Spectral centroid trung bình (>2500), danceability cao |
-| **Metal** | ZCR rất cao (>0.15), energy cao, tempo nhanh |
-| **Classical** | Harmonic ratio cao, acousticness cao, tempo chậm |
+| Thể loại      | Đặc trưng chính                                                      |
+| ------------- | -------------------------------------------------------------------- |
+| **Rock**      | Spectral centroid cao (>3000), ZCR cao (>0.1), energy cao            |
+| **Jazz**      | Spectral centroid thấp (<1500), ZCR thấp (<0.05), harmonic ratio cao |
+| **Pop**       | Spectral centroid trung bình (>2500), danceability cao               |
+| **Metal**     | ZCR rất cao (>0.15), energy cao, tempo nhanh                         |
+| **Classical** | Harmonic ratio cao, acousticness cao, tempo chậm                     |
 
 ## 📁 **4. VỀ FOLDER DATA VÀ DOWNLOAD**
 
 ### **Hiện tại:**
+
 - **KHÔNG CÓ** câu lệnh download riêng
 - Tất cả data đã được push lên GitHub
 - Khi `git clone` → tất cả file trong `data/` sẽ được tải về
 
 ### **Nếu muốn thêm data mới:**
+
 ```bash
 # Tạo script download
 python models/train_models.py  # Có thể tạo synthetic data
@@ -143,6 +150,7 @@ python models/train_models.py  # Có thể tạo synthetic data
 ```
 
 ### **Các phương pháp tổng hợp:**
+
 - **Majority Voting**: Thể loại nào được dự đoán nhiều nhất
 - **Averaging Probabilities**: Tính trung bình xác suất
 - **Weighted Average**: Đoạn đầu/cuối có trọng số cao hơn
@@ -150,18 +158,20 @@ python models/train_models.py  # Có thể tạo synthetic data
 ## 🔧 **6. 4 PHƯƠNG PHÁP NOISE REDUCTION**
 
 ### **Tất cả đều làm cùng 1 việc: GIẢM NHIỄU**
+
 ### **Nhưng cách làm khác nhau:**
 
-| Phương pháp | Cách hoạt động | Cần training? |
-|-------------|----------------|---------------|
-| **Autoencoder (ML)** | Neural network học cách "làm sạch" | ✅ Có |
-| **Wiener Filter** | Toán học: ước tính noise và trừ đi | ❌ Không |
-| **Spectral Subtraction** | Trừ phổ noise khỏi phổ signal | ❌ Không |
-| **Adaptive Filter** | Tự điều chỉnh theo thời gian thực | ❌ Không |
+| Phương pháp              | Cách hoạt động                     | Cần training? |
+| ------------------------ | ---------------------------------- | ------------- |
+| **Autoencoder (ML)**     | Neural network học cách "làm sạch" | ✅ Có         |
+| **Wiener Filter**        | Toán học: ước tính noise và trừ đi | ❌ Không      |
+| **Spectral Subtraction** | Trừ phổ noise khỏi phổ signal      | ❌ Không      |
+| **Adaptive Filter**      | Tự điều chỉnh theo thời gian thực  | ❌ Không      |
 
 ### **Chi tiết từng phương pháp:**
 
 #### **1. Autoencoder (ML)**
+
 ```python
 # Dòng 288-317 trong advanced_audio_processor.py
 def _autoencoder_denoise(self, audio: np.ndarray) -> np.ndarray:
@@ -169,16 +179,17 @@ def _autoencoder_denoise(self, audio: np.ndarray) -> np.ndarray:
     stft = librosa.stft(audio)
     magnitude = np.abs(stft)
     phase = np.angle(stft)
-    
+
     # Neural network predict magnitude "sạch"
     clean_magnitude = self.noise_reducer.predict(magnitude_reshaped)
-    
+
     # Reconstruct audio
     clean_stft = clean_magnitude * np.exp(1j * phase)
     clean_audio = librosa.istft(clean_stft)
 ```
 
 #### **2. Wiener Filter**
+
 ```python
 # Dòng 319-339
 def _advanced_wiener_filter(self, audio: np.ndarray) -> np.ndarray:
@@ -187,18 +198,19 @@ def _advanced_wiener_filter(self, audio: np.ndarray) -> np.ndarray:
     for i in range(0, len(audio) - segment_length, segment_length):
         segment = audio[i:i + segment_length]
         noise_estimates.append(np.mean(segment**2))
-    
+
     noise_estimate = np.median(noise_estimates)
-    
+
     # Công thức Wiener: gain = signal_power / (signal_power + noise)
     signal_power = np.convolve(audio**2, np.ones(1000)/1000, mode='same')
     wiener_gain = signal_power / (signal_power + noise_estimate)
-    
+
     # Áp dụng gain
     denoised = audio * wiener_gain
 ```
 
 #### **3. Spectral Subtraction**
+
 ```python
 # Dòng 341-364
 def _spectral_subtraction(self, audio: np.ndarray) -> np.ndarray:
@@ -206,7 +218,7 @@ def _spectral_subtraction(self, audio: np.ndarray) -> np.ndarray:
     noise_samples = int(0.1 * self.sample_rate)
     noise_spectrum = np.abs(fft_audio[:noise_samples])
     noise_estimate = np.mean(noise_spectrum)
-    
+
     # Trừ noise spectrum
     signal_spectrum = np.abs(fft_audio)
     clean_spectrum = signal_spectrum - alpha * noise_estimate
@@ -214,13 +226,14 @@ def _spectral_subtraction(self, audio: np.ndarray) -> np.ndarray:
 ```
 
 #### **4. Adaptive Filter**
+
 ```python
 # Dòng 366-394
 def _adaptive_noise_reduction(self, audio: np.ndarray) -> np.ndarray:
     # Sử dụng LMS algorithm
     mu = 0.01  # Step size
     filter_coeffs = np.zeros(filter_length)
-    
+
     # Cập nhật filter coefficients theo thời gian thực
     for i in range(filter_length, len(audio)):
         x = audio[i-filter_length:i]  # Input vector
