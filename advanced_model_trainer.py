@@ -20,7 +20,12 @@ import matplotlib.pyplot as plt
 import seaborn as sns
 from typing import Tuple, List, Dict, Optional
 import warnings
+import logging
+
 warnings.filterwarnings('ignore')
+
+# Set up logging
+logging.basicConfig(level=logging.INFO, format='%(asctime)s - %(levelname)s - %(message)s')
 
 class AdvancedModelTrainer:
     def __init__(self, sample_rate: int = 22050):
@@ -31,6 +36,7 @@ class AdvancedModelTrainer:
         # Model paths
         self.model_dir = 'models'
         os.makedirs(self.model_dir, exist_ok=True)
+        logging.info(f"Thư mục model '{self.model_dir}' đã được tạo hoặc đã tồn tại.")
         
         # Advanced features configuration
         self.feature_config = {
@@ -159,13 +165,13 @@ class AdvancedModelTrainer:
         Returns:
             Tuple of (features, labels)
         """
-        print("🎵 Tạo dataset tổng hợp...")
+        logging.info("Bắt đầu tạo dataset tổng hợp...")
         
         features_list = []
         labels_list = []
         
         for genre in self.genres:
-            print(f"  Tạo {samples_per_genre} mẫu cho {genre}")
+            logging.info(f"  Đang tạo {samples_per_genre} mẫu cho thể loại: {genre}")
             
             for i in range(samples_per_genre):
                 # Tạo audio tổng hợp với đặc trưng của từng thể loại
@@ -180,6 +186,7 @@ class AdvancedModelTrainer:
                 features_list.append(features)
                 labels_list.append(genre)
         
+        logging.info(f"Tạo xong dataset tổng hợp với {len(features_list)} mẫu.")
         return np.array(features_list), np.array(labels_list)
     
     def _generate_genre_audio(self, genre: str, t: np.ndarray) -> np.ndarray:
@@ -231,14 +238,16 @@ class AdvancedModelTrainer:
         Returns:
             Dictionary with trained models and results
         """
-        print("🎵 Huấn luyện ensemble classifier...")
+        logging.info("Bắt đầu huấn luyện ensemble classifier...")
         
         # Split data
+        logging.info("Chia dữ liệu train/test...")
         X_train, X_test, y_train, y_test = train_test_split(
             X, y, test_size=0.2, random_state=42, stratify=y
         )
         
         # Scale features
+        logging.info("Chuẩn hóa đặc trưng...")
         scaler = StandardScaler()
         X_train_scaled = scaler.fit_transform(X_train)
         X_test_scaled = scaler.transform(X_test)
@@ -248,45 +257,50 @@ class AdvancedModelTrainer:
         results = {}
         
         # Random Forest
-        print("  Training Random Forest...")
+        logging.info("  Đang huấn luyện Random Forest...")
         rf = RandomForestClassifier(n_estimators=200, max_depth=15, random_state=42)
         rf.fit(X_train_scaled, y_train)
         rf_score = rf.score(X_test_scaled, y_test)
         models['random_forest'] = rf
         results['random_forest'] = rf_score
+        logging.info(f"  Random Forest - Accuracy: {rf_score:.3f}")
         
         # Gradient Boosting
-        print("  Training Gradient Boosting...")
+        logging.info("  Đang huấn luyện Gradient Boosting...")
         gb = GradientBoostingClassifier(n_estimators=100, learning_rate=0.1, random_state=42)
         gb.fit(X_train_scaled, y_train)
         gb_score = gb.score(X_test_scaled, y_test)
         models['gradient_boosting'] = gb
         results['gradient_boosting'] = gb_score
+        logging.info(f"  Gradient Boosting - Accuracy: {gb_score:.3f}")
         
         # SVM
-        print("  Training SVM...")
+        logging.info("  Đang huấn luyện SVM...")
         svm = SVC(kernel='rbf', C=1.0, gamma='scale', random_state=42, probability=True)
         svm.fit(X_train_scaled, y_train)
         svm_score = svm.score(X_test_scaled, y_test)
         models['svm'] = svm
         results['svm'] = svm_score
+        logging.info(f"  SVM - Accuracy: {svm_score:.3f}")
         
         # Neural Network
-        print("  Training Neural Network...")
+        logging.info("  Đang huấn luyện Neural Network...")
         mlp = MLPClassifier(hidden_layer_sizes=(100, 50), max_iter=500, random_state=42)
         mlp.fit(X_train_scaled, y_train)
         mlp_score = mlp.score(X_test_scaled, y_test)
         models['mlp'] = mlp
         results['mlp'] = mlp_score
+        logging.info(f"  Neural Network - Accuracy: {mlp_score:.3f}")
         
         # Find best model
         best_model_name = max(results, key=results.get)
         best_model = models[best_model_name]
         best_score = results[best_model_name]
         
-        print(f"✅ Best model: {best_model_name} (Accuracy: {best_score:.3f})")
+        logging.info(f"Mô hình tốt nhất: {best_model_name} (Accuracy: {best_score:.3f})")
         
         # Save models
+        logging.info("Lưu các mô hình đã huấn luyện...")
         joblib.dump(best_model, os.path.join(self.model_dir, 'advanced_genre_classifier.pkl'))
         joblib.dump(scaler, os.path.join(self.model_dir, 'advanced_scaler.pkl'))
         joblib.dump(scaler, os.path.join(self.model_dir, 'feature_scaler.pkl'))
@@ -295,6 +309,7 @@ class AdvancedModelTrainer:
         y_pred = best_model.predict(X_test_scaled)
         classification_rep = classification_report(y_test, y_pred, target_names=self.genres)
         
+        logging.info("Hoàn tất huấn luyện ensemble classifier.")
         return {
             'models': models,
             'results': results,
@@ -316,6 +331,7 @@ class AdvancedModelTrainer:
         Returns:
             Autoencoder model
         """
+        logging.info(f"Tạo mô hình autoencoder với input shape: {input_shape}")
         # Encoder
         encoder = models.Sequential([
             layers.Input(shape=input_shape),
@@ -359,6 +375,7 @@ class AdvancedModelTrainer:
             metrics=['mae']
         )
         
+        logging.info("Tạo xong mô hình autoencoder.")
         return autoencoder
     
     def create_noise_reduction_dataset(self, clean_audio_list: List[np.ndarray]) -> Tuple[np.ndarray, np.ndarray]:
@@ -371,12 +388,13 @@ class AdvancedModelTrainer:
         Returns:
             Tuple of (noisy_spectrograms, clean_spectrograms)
         """
-        print("🎵 Tạo dataset giảm nhiễu...")
+        logging.info("Bắt đầu tạo dataset giảm nhiễu...")
         
         noisy_spectrograms = []
         clean_spectrograms = []
         
-        for clean_audio in clean_audio_list:
+        for i, clean_audio in enumerate(clean_audio_list):
+            logging.info(f"  Đang xử lý audio sạch mẫu {i+1}/{len(clean_audio_list)}")
             # Tạo nhiễu
             noise_types = ['white', 'pink', 'brown', 'gaussian']
             
@@ -408,15 +426,37 @@ class AdvancedModelTrainer:
                 noisy_magnitude_norm = noisy_magnitude / np.max(noisy_magnitude)
                 
                 # Resize to fixed size
-                target_height, target_width = 1025, 1292
+                # Giảm chiều rộng để tiết kiệm bộ nhớ, tránh lỗi OOM
+                target_height, target_width = 1024, 1296
+
+                # Process clean_magnitude_norm
+                current_h_clean, current_w_clean = clean_magnitude_norm.shape
+                resized_clean = np.zeros((target_height, target_width), dtype=clean_magnitude_norm.dtype)
                 
-                if clean_magnitude_norm.shape[0] >= target_height and clean_magnitude_norm.shape[1] >= target_width:
-                    clean_magnitude_norm = clean_magnitude_norm[:target_height, :target_width]
-                    noisy_magnitude_norm = noisy_magnitude_norm[:target_height, :target_width]
-                    
-                    clean_spectrograms.append(clean_magnitude_norm)
-                    noisy_spectrograms.append(noisy_magnitude_norm)
+                # Calculate crop/pad dimensions
+                copy_h_clean = min(current_h_clean, target_height)
+                copy_w_clean = min(current_w_clean, target_width)
+                
+                # Copy data
+                resized_clean[:copy_h_clean, :copy_w_clean] = clean_magnitude_norm[:copy_h_clean, :copy_w_clean]
+                clean_magnitude_norm = resized_clean
+
+                # Process noisy_magnitude_norm
+                current_h_noisy, current_w_noisy = noisy_magnitude_norm.shape
+                resized_noisy = np.zeros((target_height, target_width), dtype=noisy_magnitude_norm.dtype)
+                
+                # Calculate crop/pad dimensions
+                copy_h_noisy = min(current_h_noisy, target_height)
+                copy_w_noisy = min(current_w_noisy, target_width)
+                
+                # Copy data
+                resized_noisy[:copy_h_noisy, :copy_w_noisy] = noisy_magnitude_norm[:copy_h_noisy, :copy_w_noisy]
+                noisy_magnitude_norm = resized_noisy
+                
+                clean_spectrograms.append(clean_magnitude_norm)
+                noisy_spectrograms.append(noisy_magnitude_norm)
         
+        logging.info(f"Tạo xong dataset giảm nhiễu với {len(noisy_spectrograms)} mẫu.")
         return np.array(noisy_spectrograms), np.array(clean_spectrograms)
     
     def train_noise_reducer(self, clean_audio_list: List[np.ndarray]) -> tf.keras.Model:
@@ -429,13 +469,13 @@ class AdvancedModelTrainer:
         Returns:
             Trained noise reduction model
         """
-        print("🎵 Huấn luyện mô hình giảm nhiễu...")
+        logging.info("Bắt đầu huấn luyện mô hình giảm nhiễu...")
         
         # Create dataset
         noisy_spectrograms, clean_spectrograms = self.create_noise_reduction_dataset(clean_audio_list)
         
         if len(noisy_spectrograms) == 0:
-            print("❌ Không có dữ liệu cho training")
+            logging.warning("Không có dữ liệu để huấn luyện mô hình giảm nhiễu.")
             return None
         
         # Add channel dimension
@@ -457,6 +497,7 @@ class AdvancedModelTrainer:
         autoencoder = self.create_autoencoder(input_shape)
         
         # Callbacks
+        logging.info("Thiết lập callbacks...")
         callbacks_list = [
             callbacks.EarlyStopping(patience=10, restore_best_weights=True),
             callbacks.ReduceLROnPlateau(factor=0.5, patience=5),
@@ -467,19 +508,21 @@ class AdvancedModelTrainer:
         ]
         
         # Train
+        logging.info("Bắt đầu huấn luyện autoencoder...")
         history = autoencoder.fit(
             noisy_spectrograms, clean_spectrograms,
             epochs=50,
-            batch_size=8,
+            batch_size=4,
             validation_split=0.2,
             callbacks=callbacks_list,
             verbose=1
         )
         
         # Save final model
+        logging.info("Lưu mô hình giảm nhiễu cuối cùng...")
         autoencoder.save(os.path.join(self.model_dir, 'advanced_noise_reducer.h5'))
         
-        print("✅ Mô hình giảm nhiễu đã được huấn luyện")
+        logging.info("Hoàn tất huấn luyện mô hình giảm nhiễu.")
         return autoencoder
     
     def evaluate_models(self, X: np.ndarray, y: np.ndarray) -> Dict:
@@ -493,13 +536,15 @@ class AdvancedModelTrainer:
         Returns:
             Evaluation results
         """
-        print("📊 Đánh giá mô hình...")
+        logging.info("Bắt đầu đánh giá mô hình phân loại...")
         
         # Load best model
+        logging.info("Tải mô hình và scaler tốt nhất...")
         best_model = joblib.load(os.path.join(self.model_dir, 'advanced_genre_classifier.pkl'))
         scaler = joblib.load(os.path.join(self.model_dir, 'advanced_scaler.pkl'))
         
         # Cross-validation
+        logging.info("Thực hiện cross-validation...")
         X_scaled = scaler.transform(X)
         cv_scores = cross_val_score(best_model, X_scaled, y, cv=5)
         
@@ -508,6 +553,7 @@ class AdvancedModelTrainer:
         accuracy = accuracy_score(y, y_pred)
         
         # Confusion matrix
+        logging.info("Tạo confusion matrix...")
         cm = confusion_matrix(y, y_pred, labels=self.genres)
         
         # Plot confusion matrix
@@ -520,6 +566,7 @@ class AdvancedModelTrainer:
         plt.tight_layout()
         plt.savefig(os.path.join(self.model_dir, 'confusion_matrix.png'), dpi=300)
         plt.close()
+        logging.info(f"Đã lưu confusion matrix vào '{os.path.join(self.model_dir, 'confusion_matrix.png')}'")
         
         results = {
             'accuracy': accuracy,
@@ -529,24 +576,23 @@ class AdvancedModelTrainer:
             'confusion_matrix': cm
         }
         
-        print(f"✅ Accuracy: {accuracy:.3f}")
-        print(f"✅ Cross-validation: {cv_scores.mean():.3f} (+/- {cv_scores.std() * 2:.3f})")
+        logging.info(f"Đánh giá hoàn tất. Accuracy: {accuracy:.3f}, CV Mean: {cv_scores.mean():.3f}")
         
         return results
     
     def train_all_models(self):
         """Huấn luyện tất cả mô hình từ dữ liệu thật trong data/gtzan (GTZAN)"""
-        print("🎵 Bắt đầu huấn luyện tất cả mô hình từ dữ liệu thật...")
+        logging.info("Bắt đầu quy trình huấn luyện tất cả các mô hình từ dữ liệu thật...")
         data_dir = os.path.join('data', 'gtzan')
         features_list = []
         labels_list = []
         for genre in self.genres:
             genre_dir = os.path.join(data_dir, genre)
             if not os.path.isdir(genre_dir):
-                print(f"❌ Không tìm thấy thư mục: {genre_dir}")
+                logging.warning(f"Không tìm thấy thư mục: {genre_dir}, bỏ qua thể loại này.")
                 continue
-            files = [f for f in os.listdir(genre_dir) if f.endswith('.wav')][:20]  # Lấy tối đa 20 file đầu tiên
-            print(f"  Đọc {len(files)} file cho {genre}")
+            files = [f for f in os.listdir(genre_dir) if f.endswith('.wav')][:99]  # Lấy tối đa 99 file đầu tiên
+            logging.info(f"  Đang đọc {len(files)} file cho thể loại: {genre}")
             for fname in files:
                 file_path = os.path.join(genre_dir, fname)
                 try:
@@ -555,16 +601,19 @@ class AdvancedModelTrainer:
                     features_list.append(features)
                     labels_list.append(genre)
                 except Exception as e:
-                    print(f"⚠️ Lỗi đọc {file_path}: {e}")
+                    logging.error(f"Lỗi khi đọc file {file_path}: {e}")
         X = np.array(features_list)
         y = np.array(labels_list)
-        print(f"✅ Tổng số mẫu: {len(y)}")
+        logging.info(f"Tổng số mẫu đã trích xuất đặc trưng: {len(y)}")
         # Train ensemble classifier
         classifier_results = self.train_ensemble_classifier(X, y)
         # Tạo clean audio cho noise reduction (lấy 20 file đầu mỗi genre)
+        logging.info("Chuẩn bị dữ liệu audio sạch cho mô hình giảm nhiễu...")
         clean_audio_list = []
         for genre in self.genres[:5]:
             genre_dir = os.path.join(data_dir, genre)
+            if not os.path.isdir(genre_dir):
+                continue
             files = [f for f in os.listdir(genre_dir) if f.endswith('.wav')][:20]
             for fname in files:
                 file_path = os.path.join(genre_dir, fname)
@@ -572,15 +621,15 @@ class AdvancedModelTrainer:
                     audio, _ = librosa.load(file_path, sr=self.sample_rate, mono=True)
                     clean_audio_list.append(audio)
                 except Exception as e:
-                    print(f"⚠️ Lỗi đọc {file_path}: {e}")
+                    logging.error(f"Lỗi khi đọc file {file_path} cho audio sạch: {e}")
         # Train noise reducer
         noise_reducer = self.train_noise_reducer(clean_audio_list)
         # Evaluate models
         evaluation_results = self.evaluate_models(X, y)
-        print("🎉 Huấn luyện hoàn tất!")
-        print(f"📊 Kết quả cuối cùng:")
-        print(f"  - Accuracy: {evaluation_results['accuracy']:.3f}")
-        print(f"  - Cross-validation: {evaluation_results['cv_mean']:.3f}")
+        logging.info("🎉🎉🎉 HUẤN LUYỆN HOÀN TẤT! 🎉🎉🎉")
+        logging.info(f"📊 Kết quả cuối cùng:")
+        logging.info(f"  - Accuracy (phân loại): {evaluation_results['accuracy']:.3f}")
+        logging.info(f"  - Cross-validation (phân loại): {evaluation_results['cv_mean']:.3f}")
         return {
             'classifier_results': classifier_results,
             'noise_reducer': noise_reducer,
@@ -591,7 +640,7 @@ def main():
     """Test advanced model trainer"""
     trainer = AdvancedModelTrainer()
     results = trainer.train_all_models()
-    print("✅ Training completed successfully!")
+    logging.info("✅ Quy trình huấn luyện đã hoàn tất thành công!")
 
 if __name__ == "__main__":
     main() 

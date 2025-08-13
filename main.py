@@ -51,9 +51,9 @@ def check_dependencies():
 def train_advanced_models():
     """Huấn luyện các mô hình nâng cao"""
     try:
-        from models.train_models import ModelTrainer
+        from advanced_model_trainer import AdvancedModelTrainer
         print("🎵 Bắt đầu huấn luyện mô hình...")
-        trainer = ModelTrainer()
+        trainer = AdvancedModelTrainer()
         trainer.train_all_models()
         print("✅ Huấn luyện mô hình hoàn tất!")
     except Exception as e:
