@@ -21,6 +21,7 @@ import seaborn as sns
 from typing import Tuple, List, Dict, Optional
 import warnings
 import logging
+import gc
 
 warnings.filterwarnings('ignore')
 
@@ -521,6 +522,14 @@ class AdvancedModelTrainer:
         # Save final model
         logging.info("Lưu mô hình giảm nhiễu cuối cùng...")
         autoencoder.save(os.path.join(self.model_dir, 'advanced_noise_reducer.h5'))
+
+        # Giải phóng bộ nhớ sau khi huấn luyện
+        logging.info("Giải phóng bộ nhớ sau khi huấn luyện mô hình giảm nhiễu...")
+        del noisy_spectrograms
+        del clean_spectrograms
+        del history
+        tf.keras.backend.clear_session()
+        gc.collect()
         
         logging.info("Hoàn tất huấn luyện mô hình giảm nhiễu.")
         return autoencoder
@@ -604,6 +613,13 @@ class AdvancedModelTrainer:
                     logging.error(f"Lỗi khi đọc file {file_path}: {e}")
         X = np.array(features_list)
         y = np.array(labels_list)
+        
+        # Giải phóng bộ nhớ của các list trung gian
+        logging.info("Giải phóng bộ nhớ của các list đặc trưng trung gian...")
+        del features_list
+        del labels_list
+        gc.collect()
+
         logging.info(f"Tổng số mẫu đã trích xuất đặc trưng: {len(y)}")
         # Train ensemble classifier
         classifier_results = self.train_ensemble_classifier(X, y)
@@ -624,8 +640,21 @@ class AdvancedModelTrainer:
                     logging.error(f"Lỗi khi đọc file {file_path} cho audio sạch: {e}")
         # Train noise reducer
         noise_reducer = self.train_noise_reducer(clean_audio_list)
+
+        # Giải phóng bộ nhớ của danh sách audio sạch
+        logging.info("Giải phóng bộ nhớ của danh sách audio sạch...")
+        del clean_audio_list
+        gc.collect()
+
         # Evaluate models
         evaluation_results = self.evaluate_models(X, y)
+
+        # Giải phóng bộ nhớ của dữ liệu đặc trưng cuối cùng
+        logging.info("Giải phóng bộ nhớ của dữ liệu đặc trưng X, y...")
+        del X
+        del y
+        gc.collect()
+
         logging.info("🎉🎉🎉 HUẤN LUYỆN HOÀN TẤT! 🎉🎉🎉")
         logging.info(f"📊 Kết quả cuối cùng:")
         logging.info(f"  - Accuracy (phân loại): {evaluation_results['accuracy']:.3f}")
