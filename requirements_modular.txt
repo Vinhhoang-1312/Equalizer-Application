@@ -1,0 +1,56 @@
+# Advanced Audio Processing - Modular Requirements
+# Core Dependencies
+
+# Web Framework
+Flask==2.3.3
+Flask-SocketIO==5.3.6
+
+# Audio Processing
+librosa==0.10.1
+soundfile==0.12.1
+pyaudio==0.2.11
+sounddevice==0.4.6
+
+# Machine Learning
+scikit-learn==1.3.0
+tensorflow==2.13.0
+joblib==1.3.2
+
+# Signal Processing
+scipy==1.11.1
+
+# Advanced Genre Classification Options
+# Option 1: Spotify Web API
+requests==2.31.0
+
+# Option 2: Musicnn Deep Learning (optional - install manually)
+# musicnn (requires tensorflow==2.5.0, install separately)
+# pip install musicnn tensorflow==2.5.0
+
+# Option 3: Custom ML (already included above)
+numpy==1.24.3
+noisereduce==3.0.0
+
+# Data Processing
+pandas==2.0.3
+
+# Visualization
+matplotlib==3.7.2
+seaborn==0.12.2
+
+# Utilities
+python-dotenv==1.0.0
+Werkzeug==2.3.7
+
+# Optional: Advanced Deep Learning
+torch==2.0.1
+torchaudio==2.0.2
+
+# Optional: Additional Audio Libraries
+pydub==0.25.1
+aubio==0.4.9
+
+# Development Dependencies (optional)
+pytest==7.4.0
+black==23.7.0
+flake8==6.0.0

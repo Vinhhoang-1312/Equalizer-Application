@@ -12,6 +12,7 @@ import threading
 import time
 from advanced_audio_processor import AdvancedAudioProcessor
 from spotify_integration import SpotifyIntegration
+from genre_recognition_methods import GenreRecognitionMethods
 import matplotlib
 matplotlib.use('Agg')
 import matplotlib.pyplot as plt
@@ -24,14 +25,18 @@ from dotenv import load_dotenv
 
 app = Flask(__name__)
 app.config['SECRET_KEY'] = 'your-secret-key-here'
-app.config['UPLOAD_FOLDER'] = 'uploads'
+import os
+BASE_DIR = os.path.dirname(os.path.abspath(__file__))
+app.config['UPLOAD_FOLDER'] = os.path.join(BASE_DIR, 'uploads')
 app.config['MAX_CONTENT_LENGTH'] = 16 * 1024 * 1024  # 16MB max file size
 
-socketio = SocketIO(app, cors_allowed_origins="*")
+# Fix SocketIO issue by specifying async_mode
+socketio = SocketIO(app, cors_allowed_origins="*", async_mode='threading')
 
 # Initialize processors
 audio_processor = AdvancedAudioProcessor()
 spotify_integration = SpotifyIntegration()
+genre_recognizer = GenreRecognitionMethods()
 
 # Debug: Check model loading
 print(f"Debug - Genre classifier loaded: {audio_processor.genre_classifier is not None}")
@@ -40,7 +45,7 @@ print(f"Debug - Feature scaler loaded: {audio_processor.feature_scaler is not No
 
 # Ensure upload directory exists
 os.makedirs(app.config['UPLOAD_FOLDER'], exist_ok=True)
-os.makedirs('static/results', exist_ok=True)
+ # Không tự động tạo static/results nữa, chỉ sử dụng nếu đã tồn tại
 
 # Global variables for real-time processing
 real_time_processing = False
@@ -71,7 +76,7 @@ def upload_file():
         filename = secure_filename(file.filename)
         filepath = os.path.join(app.config['UPLOAD_FOLDER'], filename)
         file.save(filepath)
-        
+
         # Get processing parameters
         equalizer_params = {
             'bass_gain': float(request.form.get('bass_gain', 1.0)),
@@ -81,87 +86,117 @@ def upload_file():
             'presence_gain': float(request.form.get('presence_gain', 1.0)),
             'air_gain': float(request.form.get('air_gain', 1.0))
         }
-        
-        denoise_method = request.form.get('denoise_method', 'autoencoder')
-        
+
+        denoise_method = request.form.get('denoise_method', 'noisereduce')
+        # NEW: Get recognition method (not library anymore)
+        recognition_method = request.form.get('recognition_method', 'ml')
+
+        print(f"[DEBUG] Recognition method selected: {recognition_method}")
+
         try:
             print(f"Web app - Starting audio processing for {filepath}")
-            # Process audio
-            results = audio_processor.process_audio_file_advanced(
-                filepath, 
-                equalizer_params=equalizer_params,
-                denoise_method=denoise_method,
-                analyze=True
-            )
-            print(f"Web app - Audio processing completed")
             
+            # Load audio for processing
+            import librosa
+            audio, sr = librosa.load(filepath, sr=audio_processor.sample_rate)
+            
+            # Apply equalizer
+            processed_audio = audio_processor.advanced_equalizer(audio, **equalizer_params)
+            
+            # Apply noise reduction  
+            denoised_audio = audio_processor.advanced_noise_reduction(processed_audio, denoise_method)
+            
+            # Genre classification using selected method
+            if recognition_method == 'ml':
+                genre, confidence, genre_details = genre_recognizer.method_1_machine_learning(denoised_audio, audio_processor)
+            elif recognition_method == 'signal':
+                genre, confidence, genre_details = genre_recognizer.method_2_signal_processing(denoised_audio)
+            elif recognition_method == 'frequency':
+                genre, confidence, genre_details = genre_recognizer.method_3_frequency_analysis(denoised_audio)
+            elif recognition_method == 'rhythm':
+                genre, confidence, genre_details = genre_recognizer.method_4_rhythm_pattern(denoised_audio)
+            else:
+                # Default fallback
+                genre, confidence, genre_details = genre_recognizer.method_2_signal_processing(denoised_audio)
+            
+            print(f"Web app - Genre classification completed: {genre} ({confidence:.1%})")
+            
+            # Prepare results
+            results = {
+                'processed_audio': denoised_audio,
+                'genre': genre,
+                'confidence': f"{confidence:.1%}",
+                'analysis': genre_details,
+                'equalizer_params': equalizer_params,
+                'denoise_method': denoise_method,
+                'recognition_method': recognition_method,
+                'all_probabilities': genre_details.get('all_probabilities', {})
+            }
+            print(f"Web app - Audio processing completed")
+
             # Save processed audio
             output_filename = f"processed_{filename}"
-            output_path = os.path.join('static/results', output_filename)
+            output_path = os.path.join(BASE_DIR, 'static', 'results', output_filename)
             audio_processor.save_audio(results['processed_audio'], output_path)
-            
-            # Create visualization
+
+            # Create waveform + spectrogram visualization
             viz_filename = f"analysis_{filename.rsplit('.', 1)[0]}.png"
-            viz_path = os.path.join('static/results', viz_filename)
+            viz_path = os.path.join(BASE_DIR, 'static', 'results', viz_filename)
             try:
-                audio_processor.create_visualization(results, viz_path)
+                plt.clf()
+                plt.close('all')
+                fig, axs = plt.subplots(2, 1, figsize=(12, 8))
+                # Waveform
+                axs[0].plot(np.linspace(0, len(audio)/sr, len(audio)), audio, color='blue')
+                axs[0].set_title('Waveform')
+                axs[0].set_xlabel('Time (s)')
+                axs[0].set_ylabel('Amplitude')
+                # Spectrogram
+                S = librosa.feature.melspectrogram(y=audio, sr=sr, n_mels=128)
+                S_dB = librosa.power_to_db(S, ref=np.max)
+                img = librosa.display.specshow(S_dB, x_axis='time', y_axis='mel', sr=sr, ax=axs[1], cmap='magma')
+                axs[1].set_title('Mel Spectrogram')
+                fig.colorbar(img, ax=axs[1], format='%+2.0f dB')
+                plt.tight_layout()
+                plt.savefig(viz_path, dpi=150, bbox_inches='tight')
+                plt.close(fig)
+                plt.close('all')
+                print(f"📊 Visualization created: {viz_path}")
             except Exception as viz_error:
-                print(f"⚠️ Main visualization failed: {viz_error}")
-                # Create a simple text-based visualization as fallback
-                try:
-                    plt.clf()
-                    plt.close('all')
-                    fig, ax = plt.subplots(1, 1, figsize=(10, 6))
-                    ax.text(0.5, 0.7, f'Audio Processing Completed', ha='center', va='center', fontsize=20, weight='bold')
-                    ax.text(0.5, 0.5, f'Genre: {results["genre"]}', ha='center', va='center', fontsize=16)
-                    ax.text(0.5, 0.3, f'Confidence: {results["confidence"]:.1%}', ha='center', va='center', fontsize=16)
-                    ax.set_xlim(0, 1)
-                    ax.set_ylim(0, 1)
-                    ax.axis('off')
-                    
-                    os.makedirs('static/results', exist_ok=True)
-                    fig.canvas.draw()
-                    plt.savefig(viz_path, dpi=150, bbox_inches='tight')
-                    plt.close(fig)
-                    plt.close('all')
-                    print(f"📊 Simple fallback visualization created: {viz_path}")
-                except Exception as fallback_error:
-                    print(f"❌ Even simple visualization failed: {fallback_error}")
-                    viz_filename = None
-            
-            # Debug output
-            print(f"Web app debug - Genre: {results['genre']}")
-            print(f"Web app debug - Confidence: {results['confidence']}")
-            print(f"Web app debug - Confidence type: {type(results['confidence'])}")
-            
-            # Force genre classification if it's Unknown
-            if results['genre'] == 'Unknown' or results['confidence'] == 0.0:
-                print("Web app - Re-running genre classification...")
-                import librosa
-                audio, sr = librosa.load(filepath, sr=audio_processor.sample_rate)
-                genre, confidence, info = audio_processor.advanced_genre_classification(audio)
-                results['genre'] = genre
-                results['confidence'] = confidence
-                print(f"Web app - New genre: {genre}, confidence: {confidence}")
-            
-            # Prepare response
+                print(f"❌ Visualization failed: {viz_error}")
+                viz_filename = None
+
+            # Prepare response with audio URLs for direct playback
             response_data = {
                 'success': True,
                 'original_file': filename,
+                'original_url': f'/uploads/{filename}',  # Direct path for audio player
                 'processed_file': output_filename,
-                'visualization': viz_filename if viz_filename else None,
+                'processed_url': f'/static/results/{output_filename}',  # Direct path for audio player
+                'analysis_chart': f'/static/results/{viz_filename}' if viz_filename else None,
                 'genre': results['genre'],
-                'confidence': f"{results['confidence']:.1%}",
+                'confidence': results['confidence'],
+                'method_used': recognition_method,
                 'analysis': results['analysis'],
-                'additional_info': results['additional_info']
+                'all_probabilities': results['all_probabilities']
             }
-            
+
             return jsonify(response_data)
-            
+
         except Exception as e:
             return jsonify({'error': f'Processing failed: {str(e)}'}), 500
-    
+
     return jsonify({'error': 'Invalid file type'}), 400
+
+@app.route('/uploads/<filename>')
+def uploaded_file(filename):
+    """Serve uploaded files for audio playback"""
+    return send_file(os.path.join(app.config['UPLOAD_FOLDER'], filename))
+
+@app.route('/download_result/<filename>')
+def download_result_file(filename):
+    """Download processed files"""
+    return send_file(os.path.join(BASE_DIR, 'static', 'results', filename), as_attachment=True)
 
 @app.route('/realtime')
 def realtime():
@@ -330,7 +365,7 @@ def analyze_audio():
                 
                 # Save visualization
                 viz_filename = f"detailed_analysis_{filename.rsplit('.', 1)[0]}.png"
-                viz_path = os.path.join('static/results', viz_filename)
+                viz_path = os.path.join(BASE_DIR, 'static', 'results', viz_filename)
                 
                 # Force draw before saving
                 fig.canvas.draw()
@@ -342,7 +377,7 @@ def analyze_audio():
                 print(f"⚠️ Detailed visualization failed: {viz_error}")
                 # Create simple fallback
                 viz_filename = f"detailed_analysis_{filename.rsplit('.', 1)[0]}.png"
-                viz_path = os.path.join('static/results', viz_filename)
+                viz_path = os.path.join(BASE_DIR, 'static', 'results', viz_filename)
                 
                 fig, ax = plt.subplots(1, 1, figsize=(8, 6))
                 ax.text(0.5, 0.5, f'Audio Analysis Completed\nFile: {filename}', 
@@ -372,7 +407,7 @@ def download_file(filename):
     """Download processed file"""
     try:
         return send_file(
-            os.path.join('static/results', filename),
+            os.path.join(BASE_DIR, 'static', 'results', filename),
             as_attachment=True,
             download_name=filename
         )
@@ -398,6 +433,87 @@ def status():
             'status': 'error',
             'error': str(e)
         }), 500
+
+@app.route('/generate_noise', methods=['POST'])
+def generate_noise():
+    """Generate noise and add to clean audio"""
+    try:
+        if 'file' not in request.files:
+            return jsonify({'success': False, 'error': 'No file uploaded'})
+        
+        file = request.files['file']
+        if file.filename == '':
+            return jsonify({'success': False, 'error': 'No file selected'})
+        
+        noise_type = request.form.get('noise_type', 'white')
+        noise_level = float(request.form.get('noise_level', 0.3))
+        
+        # Save uploaded file
+        filename = secure_filename(file.filename)
+        filepath = os.path.join(app.config['UPLOAD_FOLDER'], filename)
+        file.save(filepath)
+        
+        # Load audio
+        audio, sr = librosa.load(filepath, sr=audio_processor.sample_rate)
+        
+        # Generate noise based on type
+        if noise_type == 'white':
+            noise = np.random.normal(0, 0.1, len(audio))
+        elif noise_type == 'pink':
+            # Pink noise approximation
+            noise = np.random.normal(0, 1, len(audio))
+            noise = np.convolve(noise, np.ones(100)/100, mode='same')
+        elif noise_type == 'brown':
+            # Brown noise with memory optimization
+            n_points = min(10000, len(audio))
+            brown_noise = np.cumsum(np.random.normal(0, 0.01, n_points))
+            noise = np.interp(np.arange(len(audio)), np.linspace(0, len(audio)-1, n_points), brown_noise)
+        else:  # gaussian
+            noise = np.random.normal(0, 0.05, len(audio))
+        
+        # Add noise to audio
+        noisy_audio = audio + noise * noise_level
+        
+        # Normalize to prevent clipping
+        noisy_audio = noisy_audio / np.max(np.abs(noisy_audio))
+        
+        # Save processed file
+        name_without_ext = os.path.splitext(filename)[0]
+        processed_filename = f"{name_without_ext}_noisy_{noise_type}_{noise_level}.wav"
+        processed_filepath = os.path.join(app.config['UPLOAD_FOLDER'], processed_filename)
+        
+        sf.write(processed_filepath, noisy_audio, audio_processor.sample_rate)
+        
+        # Create audio player HTML
+        audio_player = f'''
+        <div class="row">
+            <div class="col-md-6">
+                <h6>Original Audio:</h6>
+                <audio controls class="w-100">
+                    <source src="/uploads/{filename}" type="audio/wav">
+                </audio>
+            </div>
+            <div class="col-md-6">
+                <h6>Noisy Audio:</h6>
+                <audio controls class="w-100">
+                    <source src="/uploads/{processed_filename}" type="audio/wav">
+                </audio>
+            </div>
+        </div>
+        '''
+        
+        return jsonify({
+            'success': True,
+            'original_filename': filename,
+            'processed_file': processed_filename,
+            'noise_type': noise_type.title(),
+            'noise_level': noise_level,
+            'audio_player': audio_player
+        })
+        
+    except Exception as e:
+        print(f"Error generating noise: {e}")
+        return jsonify({'success': False, 'error': str(e)})
 
 if __name__ == '__main__':
     print("🌐 Khởi động Advanced Audio Processing Web App...")
