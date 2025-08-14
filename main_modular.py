@@ -218,7 +218,8 @@ class MainApplication:
                         processed_analysis.get('snr_estimate', 0) - 
                         noise_analysis.get('snr_estimate', 0)
                     ),
-                    'plot_path': plot_path
+                    'plot_path': plot_path,
+                    'comparison_plot': plot_path is not None
                 })
                 
             except Exception as e:
@@ -271,40 +272,52 @@ class MainApplication:
                 print(f"🎵 Using BEST Genre Classification Methods (option: {option})...")
                 
                 if option == 'option1':
-                    # Use Deep Learning method (TensorFlow/Musicnn/Advanced Spectral)
-                    result = self.genre_classification_engine.advanced_classifier.classify_with_deep_learning(self.current_file_path)
+                    # Use Advanced Librosa/Musicnn method
+                    result = self.genre_classification_engine.advanced_classifier.option1_musicnn_classify(self.current_file_path)
                     return jsonify({
                         'success': True,
                         'predicted_genre': result.get('predicted_genre', 'unknown'),
                         'confidence': result.get('confidence', 0.0),
-                        'method': result.get('method', 'Deep Learning AI'),
+                        'method': result.get('method', 'Advanced Analysis'),
                         'additional_info': result
                     })
                 elif option == 'option2':
-                    # Use Ensemble ML method
-                    result = self.genre_classification_engine.advanced_classifier.classify_with_ensemble_ml(self.current_file_path)
+                    # Use Custom ML method
+                    result = self.genre_classification_engine.advanced_classifier.option2_custom_ml_classify(self.current_file_path)
                     return jsonify({
                         'success': True,
                         'predicted_genre': result.get('predicted_genre', 'unknown'),
                         'confidence': result.get('confidence', 0.0),
-                        'method': result.get('method', 'Ensemble ML'),
+                        'method': result.get('method', 'Custom ML (GTZAN)'),
                         'additional_info': result
                     })
                 elif option == 'both':
-                    # Run both methods and choose the best
-                    result = self.genre_classification_engine.advanced_classifier.classify_best_method(self.current_file_path, 'both')
-                    
-                    if result.get('status') == 'error':
-                        return jsonify({'error': result.get('message', 'Classification failed')}), 500
-                    
-                    return jsonify({
-                        'success': True,
-                        'predicted_genre': result.get('predicted_genre', 'unknown'),
-                        'confidence': result.get('confidence', 0.0),
-                        'method': result.get('method', 'Optimized Analysis'),
-                        'comparison': result.get('comparison', ''),
-                        'additional_info': result
-                    })
+                    # Run both methods and compare
+                    try:
+                        result1 = self.genre_classification_engine.advanced_classifier.option1_musicnn_classify(self.current_file_path)
+                        result2 = self.genre_classification_engine.advanced_classifier.option2_custom_ml_classify(self.current_file_path)
+                        
+                        # Choose the result with higher confidence
+                        if result1.get('confidence', 0) >= result2.get('confidence', 0):
+                            best_result = result1
+                            comparison = f"Option1: {result1.get('predicted_genre')} ({result1.get('confidence', 0):.2f}), Option2: {result2.get('predicted_genre')} ({result2.get('confidence', 0):.2f})"
+                        else:
+                            best_result = result2
+                            comparison = f"Option2: {result2.get('predicted_genre')} ({result2.get('confidence', 0):.2f}), Option1: {result1.get('predicted_genre')} ({result1.get('confidence', 0):.2f})"
+                        
+                        return jsonify({
+                            'success': True,
+                            'predicted_genre': best_result.get('predicted_genre', 'unknown'),
+                            'confidence': best_result.get('confidence', 0.0),
+                            'method': 'Combined Analysis (Best Result)',
+                            'comparison': comparison,
+                            'option1_result': result1,
+                            'option2_result': result2
+                        })
+                        
+                    except Exception as e:
+                        print(f"❌ Both methods failed: {e}")
+                        return jsonify({'error': f'Classification failed: {str(e)}'}), 500
                 else:
                     return jsonify({'error': 'Invalid option parameter'}), 400
                 

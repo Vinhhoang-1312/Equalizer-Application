@@ -1,1096 +1,1472 @@
 <!DOCTYPE html>
 <html lang="en">
-<head>
-    <meta charset="UTF-8">
-    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
     <title>Advanced Audio Processing - Modular Interface</title>
-    <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.1.3/dist/css/bootstrap.min.css" rel="stylesheet">
-    <link href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.0.0/css/all.min.css" rel="stylesheet">
+    <link
+      href="https://cdn.jsdelivr.net/npm/bootstrap@5.1.3/dist/css/bootstrap.min.css"
+      rel="stylesheet"
+    />
+    <link
+      href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.0.0/css/all.min.css"
+      rel="stylesheet"
+    />
     <script src="https://cdn.socket.io/4.0.0/socket.io.min.js"></script>
     <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
     <style>
-        :root {
-            --primary-gradient: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
-            --secondary-gradient: linear-gradient(135deg, #f093fb 0%, #f5576c 100%);
-            --success-gradient: linear-gradient(135deg, #4facfe 0%, #00f2fe 100%);
-            --warning-gradient: linear-gradient(135deg, #fa709a 0%, #fee140 100%);
-        }
+      :root {
+        --primary-gradient: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+        --secondary-gradient: linear-gradient(135deg, #f093fb 0%, #f5576c 100%);
+        --success-gradient: linear-gradient(135deg, #4facfe 0%, #00f2fe 100%);
+        --warning-gradient: linear-gradient(135deg, #fa709a 0%, #fee140 100%);
+      }
 
-        body {
-            background: var(--primary-gradient);
-            min-height: 100vh;
-            font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
-        }
+      body {
+        background: var(--primary-gradient);
+        min-height: 100vh;
+        font-family: "Segoe UI", Tahoma, Geneva, Verdana, sans-serif;
+      }
 
-        .main-container {
-            background: rgba(255, 255, 255, 0.95);
-            border-radius: 20px;
-            box-shadow: 0 20px 40px rgba(0, 0, 0, 0.1);
-            margin: 20px;
-            min-height: calc(100vh - 40px);
-        }
+      .main-container {
+        background: rgba(255, 255, 255, 0.95);
+        border-radius: 20px;
+        box-shadow: 0 20px 40px rgba(0, 0, 0, 0.1);
+        margin: 20px;
+        min-height: calc(100vh - 40px);
+      }
 
-        .nav-pills .nav-link {
-            border-radius: 15px;
-            margin: 5px;
-            padding: 12px 20px;
-            background: rgba(102, 126, 234, 0.1);
-            color: #667eea;
-            border: 2px solid transparent;
-            font-weight: 600;
-            transition: all 0.3s ease;
-        }
+      .nav-pills .nav-link {
+        border-radius: 15px;
+        margin: 5px;
+        padding: 12px 20px;
+        background: rgba(102, 126, 234, 0.1);
+        color: #667eea;
+        border: 2px solid transparent;
+        font-weight: 600;
+        transition: all 0.3s ease;
+      }
 
-        .nav-pills .nav-link:hover {
-            background: rgba(102, 126, 234, 0.2);
-            transform: translateY(-2px);
-        }
+      .nav-pills .nav-link:hover {
+        background: rgba(102, 126, 234, 0.2);
+        transform: translateY(-2px);
+      }
 
-        .nav-pills .nav-link.active {
-            background: var(--primary-gradient);
-            color: white;
-            border-color: #667eea;
-            box-shadow: 0 8px 20px rgba(102, 126, 234, 0.3);
-        }
+      .nav-pills .nav-link.active {
+        background: var(--primary-gradient);
+        color: white;
+        border-color: #667eea;
+        box-shadow: 0 8px 20px rgba(102, 126, 234, 0.3);
+      }
 
-        .module-card {
-            background: white;
-            border-radius: 15px;
-            padding: 25px;
-            margin: 15px 0;
-            box-shadow: 0 10px 30px rgba(0, 0, 0, 0.1);
-            border: 1px solid rgba(0, 0, 0, 0.05);
-        }
+      .module-card {
+        background: white;
+        border-radius: 15px;
+        padding: 25px;
+        margin: 15px 0;
+        box-shadow: 0 10px 30px rgba(0, 0, 0, 0.1);
+        border: 1px solid rgba(0, 0, 0, 0.05);
+      }
 
-        .btn-custom {
-            background: var(--primary-gradient);
-            border: none;
-            border-radius: 25px;
-            padding: 12px 30px;
-            color: white;
-            font-weight: 600;
-            transition: all 0.3s ease;
-        }
+      .btn-custom {
+        background: var(--primary-gradient);
+        border: none;
+        border-radius: 25px;
+        padding: 12px 30px;
+        color: white;
+        font-weight: 600;
+        transition: all 0.3s ease;
+      }
 
-        .btn-custom:hover {
-            transform: translateY(-2px);
-            box-shadow: 0 10px 20px rgba(0, 0, 0, 0.2);
-            color: white;
-        }
+      .btn-custom:hover {
+        transform: translateY(-2px);
+        box-shadow: 0 10px 20px rgba(0, 0, 0, 0.2);
+        color: white;
+      }
 
-        .btn-success-custom {
-            background: var(--success-gradient);
-        }
+      .btn-success-custom {
+        background: var(--success-gradient);
+      }
 
-        .btn-warning-custom {
-            background: var(--warning-gradient);
-        }
+      .btn-warning-custom {
+        background: var(--warning-gradient);
+      }
 
-        .btn-danger-custom {
-            background: var(--secondary-gradient);
-        }
+      .btn-danger-custom {
+        background: var(--secondary-gradient);
+      }
 
-        .slider-container {
-            margin: 15px 0;
-        }
+      .slider-container {
+        margin: 15px 0;
+      }
 
-        .slider-label {
-            font-weight: 600;
-            margin-bottom: 8px;
-            display: flex;
-            justify-content: space-between;
-        }
+      .slider-label {
+        font-weight: 600;
+        margin-bottom: 8px;
+        display: flex;
+        justify-content: space-between;
+      }
 
-        .custom-range {
-            height: 8px;
-            border-radius: 4px;
-        }
+      .custom-range {
+        height: 8px;
+        border-radius: 4px;
+      }
 
-        .custom-range::-webkit-slider-thumb {
-            background: var(--primary-gradient);
-            border: none;
-            width: 20px;
-            height: 20px;
-            border-radius: 50%;
-        }
+      .custom-range::-webkit-slider-thumb {
+        background: var(--primary-gradient);
+        border: none;
+        width: 20px;
+        height: 20px;
+        border-radius: 50%;
+      }
 
-        .status-indicator {
-            display: inline-block;
-            width: 12px;
-            height: 12px;
-            border-radius: 50%;
-            margin-right: 8px;
-        }
+      .status-indicator {
+        display: inline-block;
+        width: 12px;
+        height: 12px;
+        border-radius: 50%;
+        margin-right: 8px;
+      }
 
-        .status-active { background: #28a745; }
-        .status-inactive { background: #dc3545; }
-        .status-processing { background: #ffc107; animation: pulse 1s infinite; }
+      .status-active {
+        background: #28a745;
+      }
+      .status-inactive {
+        background: #dc3545;
+      }
+      .status-processing {
+        background: #ffc107;
+        animation: pulse 1s infinite;
+      }
 
-        @keyframes pulse {
-            0% { opacity: 1; }
-            50% { opacity: 0.5; }
-            100% { opacity: 1; }
+      @keyframes pulse {
+        0% {
+          opacity: 1;
         }
+        50% {
+          opacity: 0.5;
+        }
+        100% {
+          opacity: 1;
+        }
+      }
 
-        .upload-area {
-            border: 3px dashed #667eea;
-            border-radius: 15px;
-            padding: 40px;
-            text-align: center;
-            background: rgba(102, 126, 234, 0.05);
-            transition: all 0.3s ease;
-            cursor: pointer;
-        }
+      .upload-area {
+        border: 3px dashed #667eea;
+        border-radius: 15px;
+        padding: 40px;
+        text-align: center;
+        background: rgba(102, 126, 234, 0.05);
+        transition: all 0.3s ease;
+        cursor: pointer;
+      }
 
-        .upload-area:hover, .upload-area.dragover {
-            border-color: #764ba2;
-            background: rgba(118, 75, 162, 0.1);
-        }
+      .upload-area:hover,
+      .upload-area.dragover {
+        border-color: #764ba2;
+        background: rgba(118, 75, 162, 0.1);
+      }
 
-        .result-card {
-            background: var(--secondary-gradient);
-            color: white;
-            border-radius: 15px;
-            padding: 20px;
-            margin: 15px 0;
-        }
+      .result-card {
+        background: var(--secondary-gradient);
+        color: white;
+        border-radius: 15px;
+        padding: 20px;
+        margin: 15px 0;
+      }
 
-        .frequency-display {
-            font-family: monospace;
-            font-size: 0.9em;
-            color: #666;
-        }
+      .frequency-display {
+        font-family: monospace;
+        font-size: 0.9em;
+        color: #666;
+      }
 
-        .genre-badge {
-            background: var(--secondary-gradient);
-            color: white;
-            padding: 8px 16px;
-            border-radius: 20px;
-            display: inline-block;
-            margin: 5px;
-            font-weight: 600;
-        }
+      .genre-badge {
+        background: var(--secondary-gradient);
+        color: white;
+        padding: 8px 16px;
+        border-radius: 20px;
+        display: inline-block;
+        margin: 5px;
+        font-weight: 600;
+      }
 
-        .confidence-meter {
-            background: rgba(255, 255, 255, 0.1);
-            border-radius: 10px;
-            padding: 10px;
-            margin: 10px 0;
-        }
+      .confidence-meter {
+        background: rgba(255, 255, 255, 0.1);
+        border-radius: 10px;
+        padding: 10px;
+        margin: 10px 0;
+      }
 
-        .progress-bar {
-            background: var(--primary-gradient);
-        }
+      .progress-bar {
+        background: var(--primary-gradient);
+      }
 
-        .realtime-controls {
-            background: rgba(0, 0, 0, 0.05);
-            border-radius: 15px;
-            padding: 20px;
-            margin: 15px 0;
-        }
+      .realtime-controls {
+        background: rgba(0, 0, 0, 0.05);
+        border-radius: 15px;
+        padding: 20px;
+        margin: 15px 0;
+      }
 
-        .audio-visualizer {
-            height: 200px;
-            background: rgba(0, 0, 0, 0.05);
-            border-radius: 10px;
-            margin: 15px 0;
-            position: relative;
-            overflow: hidden;
-        }
+      .audio-visualizer {
+        height: 200px;
+        background: rgba(0, 0, 0, 0.05);
+        border-radius: 10px;
+        margin: 15px 0;
+        position: relative;
+        overflow: hidden;
+      }
 
-        .chart-container {
-            position: relative;
-            height: 300px;
-            margin: 20px 0;
-        }
+      .chart-container {
+        position: relative;
+        height: 300px;
+        margin: 20px 0;
+      }
 
-        .tab-content {
-            padding: 20px 0;
-        }
+      .tab-content {
+        padding: 20px 0;
+      }
 
-        .module-header {
-            background: var(--primary-gradient);
-            color: white;
-            padding: 15px 25px;
-            margin: -25px -25px 25px -25px;
-            border-radius: 15px 15px 0 0;
-        }
+      .module-header {
+        background: var(--primary-gradient);
+        color: white;
+        padding: 15px 25px;
+        margin: -25px -25px 25px -25px;
+        border-radius: 15px 15px 0 0;
+      }
 
-        .setting-group {
-            background: rgba(0, 0, 0, 0.02);
-            border-radius: 10px;
-            padding: 15px;
-            margin: 15px 0;
-        }
+      .setting-group {
+        background: rgba(0, 0, 0, 0.02);
+        border-radius: 10px;
+        padding: 15px;
+        margin: 15px 0;
+      }
 
-        /* Comparison Results Styles */
-        .comparison-item {
-            border: 2px solid #e9ecef;
-            border-radius: 10px;
-            padding: 15px;
-            text-align: center;
-            background: rgba(255, 255, 255, 0.8);
-            transition: all 0.3s ease;
-        }
+      /* Comparison Results Styles */
+      .comparison-item {
+        border: 2px solid #e9ecef;
+        border-radius: 10px;
+        padding: 15px;
+        text-align: center;
+        background: rgba(255, 255, 255, 0.8);
+        transition: all 0.3s ease;
+      }
 
-        .comparison-item.winner {
-            border-color: #28a745;
-            background: rgba(40, 167, 69, 0.1);
-            box-shadow: 0 4px 15px rgba(40, 167, 69, 0.2);
-            transform: scale(1.02);
-        }
+      .comparison-item.winner {
+        border-color: #28a745;
+        background: rgba(40, 167, 69, 0.1);
+        box-shadow: 0 4px 15px rgba(40, 167, 69, 0.2);
+        transform: scale(1.02);
+      }
 
-        .confidence-badge {
-            display: inline-block;
-            background: var(--primary-gradient);
-            color: white;
-            padding: 4px 8px;
-            border-radius: 15px;
-            font-size: 0.8em;
-            font-weight: bold;
-            margin-left: 8px;
-        }
+      .confidence-badge {
+        display: inline-block;
+        background: var(--primary-gradient);
+        color: white;
+        padding: 4px 8px;
+        border-radius: 15px;
+        font-size: 0.8em;
+        font-weight: bold;
+        margin-left: 8px;
+      }
 
-        .comparison-item.winner .confidence-badge {
-            background: var(--success-gradient);
-        }
+      .comparison-item.winner .confidence-badge {
+        background: var(--success-gradient);
+      }
 
-        /* Simplified Button Styles */
-        .btn.h-100 {
-            min-height: 120px;
-        }
+      /* Simplified Button Styles */
+      .btn.h-100 {
+        min-height: 120px;
+      }
 
-        .btn .fa-2x {
-            color: rgba(255, 255, 255, 0.9);
-        }
+      .btn .fa-2x {
+        color: rgba(255, 255, 255, 0.9);
+      }
 
-        .btn:hover .fa-2x {
-            transform: scale(1.1);
-            transition: transform 0.3s ease;
-        }
+      .btn:hover .fa-2x {
+        transform: scale(1.1);
+        transition: transform 0.3s ease;
+      }
 
-        .btn h5 {
-            margin-bottom: 0.5rem;
-            font-weight: bold;
-        }
+      .btn h5 {
+        margin-bottom: 0.5rem;
+        font-weight: bold;
+      }
 
-        .btn small {
-            opacity: 0.9;
-            font-size: 0.75em;
-        }
+      .btn small {
+        opacity: 0.9;
+        font-size: 0.75em;
+      }
     </style>
-</head>
-<body>
+  </head>
+  <body>
     <div class="container-fluid">
-        <div class="main-container">
-            <!-- Header -->
-            <div class="text-center p-4">
-                <h1 class="display-4">
-                    <i class="fas fa-music"></i> Advanced Audio Processing
-                </h1>
-                <p class="lead text-muted">
-                    Modular Audio Processing with Equalizer, Noise Reduction, Genre Classification & Real-time Processing
-                </p>
-            </div>
-
-            <!-- Navigation Tabs -->
-            <div class="px-4">
-                <ul class="nav nav-pills justify-content-center" id="mainTabs" role="tablist">
-                    <li class="nav-item" role="presentation">
-                        <button class="nav-link active" id="file-tab" data-bs-toggle="pill" 
-                                data-bs-target="#file-processing" type="button" role="tab">
-                            <i class="fas fa-file-audio"></i> File Upload
-                        </button>
-                    </li>
-                    <li class="nav-item" role="presentation">
-                        <button class="nav-link" id="equalizer-tab" data-bs-toggle="pill" 
-                                data-bs-target="#equalizer" type="button" role="tab">
-                            <i class="fas fa-sliders-h"></i> Equalizer
-                        </button>
-                    </li>
-                    <li class="nav-item" role="presentation">
-                        <button class="nav-link" id="noise-tab" data-bs-toggle="pill" 
-                                data-bs-target="#noise-reduction" type="button" role="tab">
-                            <i class="fas fa-magic"></i> Noise Reduction
-                        </button>
-                    </li>
-                    <li class="nav-item" role="presentation">
-                        <button class="nav-link" id="genre-tab" data-bs-toggle="pill" 
-                                data-bs-target="#genre-classification" type="button" role="tab">
-                            <i class="fas fa-brain"></i> Genre Classification
-                        </button>
-                    </li>
-                    <li class="nav-item" role="presentation">
-                        <button class="nav-link" id="realtime-tab" data-bs-toggle="pill" 
-                                data-bs-target="#realtime" type="button" role="tab">
-                            <i class="fas fa-broadcast-tower"></i> Real-time
-                        </button>
-                    </li>
-                    <li class="nav-item" role="presentation">
-                        <button class="nav-link" id="analysis-tab" data-bs-toggle="pill" 
-                                data-bs-target="#analysis" type="button" role="tab">
-                            <i class="fas fa-chart-line"></i> Analysis
-                        </button>
-                    </li>
-                </ul>
-            </div>
-
-            <!-- Tab Content -->
-            <div class="tab-content p-4" id="mainTabContent">
-                
-                <!-- File Processing Tab -->
-                <div class="tab-pane fade show active" id="file-processing" role="tabpanel">
-                    <div class="module-card">
-                        <div class="module-header">
-                            <h3><i class="fas fa-file-audio"></i> Audio File Upload & Management</h3>
-                            <p class="mb-0">Upload your audio files (MP3, WAV, FLAC) to start processing</p>
-                        </div>
-
-                        <!-- File Upload Area -->
-                        <div class="upload-area" id="uploadArea">
-                            <div class="mb-3">
-                                <i class="fas fa-cloud-upload-alt fa-3x text-primary"></i>
-                            </div>
-                            <h4>Drop your audio file here</h4>
-                            <p class="text-muted">or click to browse files</p>
-                            <p class="small text-muted">Supported formats: MP3, WAV, FLAC (Max: 16MB)</p>
-                            <input type="file" id="audioFile" accept="audio/*" class="d-none">
-                        </div>
-
-                        <!-- File Info Display -->
-                        <div id="fileInfo" class="mt-4" style="display: none;">
-                            <div class="alert alert-success">
-                                <h5><i class="fas fa-check-circle"></i> File Loaded Successfully</h5>
-                                <div class="row">
-                                    <div class="col-md-6">
-                                        <p><strong>Filename:</strong> <span id="fileName"></span></p>
-                                        <p><strong>Duration:</strong> <span id="fileDuration"></span> seconds</p>
-                                    </div>
-                                    <div class="col-md-6">
-                                        <p><strong>Sample Rate:</strong> <span id="fileSampleRate"></span> Hz</p>
-                                        <p><strong>RMS Level:</strong> <span id="fileRMS"></span></p>
-                                    </div>
-                                </div>
-                            </div>
-                        </div>
-
-                        <!-- Processing Status -->
-                        <div id="processingStatus" class="mt-3" style="display: none;">
-                            <div class="d-flex align-items-center">
-                                <div class="spinner-border spinner-border-sm text-primary me-2" role="status"></div>
-                                <span>Processing audio file...</span>
-                            </div>
-                            <div class="progress mt-2">
-                                <div class="progress-bar progress-bar-striped progress-bar-animated" 
-                                     role="progressbar" style="width: 0%"></div>
-                            </div>
-                        </div>
-                    </div>
-                </div>
-
-                <!-- Equalizer Tab -->
-                <div class="tab-pane fade" id="equalizer" role="tabpanel">
-                    <div class="module-card">
-                        <div class="module-header">
-                            <h3><i class="fas fa-sliders-h"></i> 10-Band Equalizer Engine</h3>
-                            <p class="mb-0">Professional equalizer with 10 frequency bands and presets</p>
-                        </div>
-
-                        <!-- Preset Selection -->
-                        <div class="setting-group">
-                            <h5>Equalizer Presets</h5>
-                            <div class="row">
-                                <div class="col-md-8">
-                                    <select class="form-select" id="eqPreset">
-                                        <option value="">Select a preset...</option>
-                                        <option value="flat">Flat (No EQ)</option>
-                                        <option value="rock">Rock</option>
-                                        <option value="pop">Pop</option>
-                                        <option value="classical">Classical</option>
-                                        <option value="jazz">Jazz</option>
-                                        <option value="bass_boost">Bass Boost</option>
-                                        <option value="vocal">Vocal</option>
-                                        <option value="dance">Dance</option>
-                                    </select>
-                                </div>
-                                <div class="col-md-4">
-                                    <button class="btn btn-custom w-100" id="loadPreset">Load Preset</button>
-                                </div>
-                            </div>
-                        </div>
-
-                        <!-- 10-Band Equalizer Controls -->
-                        <div class="setting-group">
-                            <h5>Frequency Bands</h5>
-                            <div class="row">
-                                <!-- Sub-bass 60Hz -->
-                                <div class="col-md-6 col-lg-4">
-                                    <div class="slider-container">
-                                        <div class="slider-label">
-                                            <span>Sub-bass</span>
-                                            <span class="frequency-display">60 Hz</span>
-                                            <span id="subBassValue">0 dB</span>
-                                        </div>
-                                        <input type="range" class="form-range" id="subBass" 
-                                               min="-20" max="20" value="0" step="0.5">
-                                    </div>
-                                </div>
-
-                                <!-- Bass 170Hz -->
-                                <div class="col-md-6 col-lg-4">
-                                    <div class="slider-container">
-                                        <div class="slider-label">
-                                            <span>Bass</span>
-                                            <span class="frequency-display">170 Hz</span>
-                                            <span id="bassValue">0 dB</span>
-                                        </div>
-                                        <input type="range" class="form-range" id="bass" 
-                                               min="-20" max="20" value="0" step="0.5">
-                                    </div>
-                                </div>
-
-                                <!-- Low-mid 310Hz -->
-                                <div class="col-md-6 col-lg-4">
-                                    <div class="slider-container">
-                                        <div class="slider-label">
-                                            <span>Low-mid</span>
-                                            <span class="frequency-display">310 Hz</span>
-                                            <span id="lowMidValue">0 dB</span>
-                                        </div>
-                                        <input type="range" class="form-range" id="lowMid" 
-                                               min="-20" max="20" value="0" step="0.5">
-                                    </div>
-                                </div>
-
-                                <!-- Mid 600Hz -->
-                                <div class="col-md-6 col-lg-4">
-                                    <div class="slider-container">
-                                        <div class="slider-label">
-                                            <span>Mid</span>
-                                            <span class="frequency-display">600 Hz</span>
-                                            <span id="midValue">0 dB</span>
-                                        </div>
-                                        <input type="range" class="form-range" id="mid" 
-                                               min="-20" max="20" value="0" step="0.5">
-                                    </div>
-                                </div>
-
-                                <!-- High-mid 1kHz -->
-                                <div class="col-md-6 col-lg-4">
-                                    <div class="slider-container">
-                                        <div class="slider-label">
-                                            <span>High-mid</span>
-                                            <span class="frequency-display">1 kHz</span>
-                                            <span id="highMidValue">0 dB</span>
-                                        </div>
-                                        <input type="range" class="form-range" id="highMid" 
-                                               min="-20" max="20" value="0" step="0.5">
-                                    </div>
-                                </div>
-
-                                <!-- Presence 3kHz -->
-                                <div class="col-md-6 col-lg-4">
-                                    <div class="slider-container">
-                                        <div class="slider-label">
-                                            <span>Presence</span>
-                                            <span class="frequency-display">3 kHz</span>
-                                            <span id="presenceValue">0 dB</span>
-                                        </div>
-                                        <input type="range" class="form-range" id="presence" 
-                                               min="-20" max="20" value="0" step="0.5">
-                                    </div>
-                                </div>
-
-                                <!-- Brilliance 6kHz -->
-                                <div class="col-md-6 col-lg-4">
-                                    <div class="slider-container">
-                                        <div class="slider-label">
-                                            <span>Brilliance</span>
-                                            <span class="frequency-display">6 kHz</span>
-                                            <span id="brillianceValue">0 dB</span>
-                                        </div>
-                                        <input type="range" class="form-range" id="brilliance" 
-                                               min="-20" max="20" value="0" step="0.5">
-                                    </div>
-                                </div>
-
-                                <!-- Air 12kHz -->
-                                <div class="col-md-6 col-lg-4">
-                                    <div class="slider-container">
-                                        <div class="slider-label">
-                                            <span>Air</span>
-                                            <span class="frequency-display">12 kHz</span>
-                                            <span id="airValue">0 dB</span>
-                                        </div>
-                                        <input type="range" class="form-range" id="air" 
-                                               min="-20" max="20" value="0" step="0.5">
-                                    </div>
-                                </div>
-
-                                <!-- Ultra-high 14kHz -->
-                                <div class="col-md-6 col-lg-4">
-                                    <div class="slider-container">
-                                        <div class="slider-label">
-                                            <span>Ultra-high</span>
-                                            <span class="frequency-display">14 kHz</span>
-                                            <span id="ultraHighValue">0 dB</span>
-                                        </div>
-                                        <input type="range" class="form-range" id="ultraHigh" 
-                                               min="-20" max="20" value="0" step="0.5">
-                                    </div>
-                                </div>
-
-                                <!-- Extreme 16kHz -->
-                                <div class="col-md-6 col-lg-4">
-                                    <div class="slider-container">
-                                        <div class="slider-label">
-                                            <span>Extreme</span>
-                                            <span class="frequency-display">16 kHz</span>
-                                            <span id="extremeValue">0 dB</span>
-                                        </div>
-                                        <input type="range" class="form-range" id="extreme" 
-                                               min="-20" max="20" value="0" step="0.5">
-                                    </div>
-                                </div>
-                            </div>
-                        </div>
-
-                        <!-- Processing Controls -->
-                        <div class="setting-group">
-                            <div class="row">
-                                <div class="col-md-4">
-                                    <label class="form-label">Processing Method</label>
-                                    <select class="form-select" id="eqMethod">
-                                        <option value="fft">FFT (Fast)</option>
-                                        <option value="filter">IIR Filters (High Quality)</option>
-                                    </select>
-                                </div>
-                                <div class="col-md-4 d-flex align-items-end">
-                                    <button class="btn btn-success-custom w-100" id="processEqualizer">
-                                        <i class="fas fa-play"></i> Process Audio
-                                    </button>
-                                </div>
-                                <div class="col-md-4 d-flex align-items-end">
-                                    <button class="btn btn-warning-custom w-100" id="resetEqualizer">
-                                        <i class="fas fa-undo"></i> Reset All
-                                    </button>
-                                </div>
-                            </div>
-                        </div>
-
-                        <!-- Frequency Response Chart -->
-                        <div class="chart-container">
-                            <canvas id="frequencyResponseChart"></canvas>
-                        </div>
-                    </div>
-                </div>
-
-                <!-- Noise Reduction Tab -->
-                <div class="tab-pane fade" id="noise-reduction" role="tabpanel">
-                    <div class="module-card">
-                        <div class="module-header">
-                            <h3><i class="fas fa-magic"></i> Noise Reduction Engine</h3>
-                            <p class="mb-0">AI-powered noise reduction with multiple algorithms</p>
-                        </div>
-
-                        <!-- 🔧 Noise Reduction Options -->
-                        <div class="setting-group">
-                            <h5>🔧 Chọn Phương Pháp Giảm Nhiễu</h5>
-                            <div class="row g-3">
-                                <div class="col-md-6">
-                                    <button class="btn btn-primary w-100 h-100" id="processNoiseML"
-                                            title="AI/ML của hệ thống - Autoencoder đã train">
-                                        <div class="d-flex flex-column align-items-center py-3">
-                                            <i class="fas fa-brain fa-2x mb-2"></i>
-                                            <h5 class="mb-1">AI/ML Hệ Thống</h5>
-                                            <small class="text-light">Autoencoder Neural Network</small>
-                                            <small class="text-light">✅ Offline • Chất lượng cao</small>
-                                        </div>
-                                    </button>
-                                </div>
-                                <div class="col-md-6">
-                                    <button class="btn btn-success w-100 h-100" id="processNoiseLibrary"
-                                            title="Thư viện giảm nhiễu tốt nhất">
-                                        <div class="d-flex flex-column align-items-center py-3">
-                                            <i class="fas fa-magic fa-2x mb-2"></i>
-                                            <h5 class="mb-1">Thư Viện Tốt Nhất</h5>
-                                            <small class="text-light">NoiseReduce Library</small>
-                                            <small class="text-light">🚀 Nhanh • Hiệu quả</small>
-                                        </div>
-                                    </button>
-                                </div>
-                            </div>
-
-                            <!-- Reduction Level Control -->
-                            <div class="row mt-3">
-                                <div class="col-md-6 offset-md-3">
-                                    <div class="slider-container">
-                                        <div class="slider-label">
-                                            <span>Mức Độ Giảm Nhiễu</span>
-                                            <span id="reductionValue">0.7</span>
-                                        </div>
-                                        <input type="range" class="form-range" id="reductionLevel" 
-                                               min="0.1" max="1.0" value="0.7" step="0.1">
-                                    </div>
-                                </div>
-                            </div>
-                            
-                            <!-- Info Panel -->
-                            <div class="mt-3">
-                                <div class="alert alert-info">
-                                    <div class="row">
-                                        <div class="col-md-6">
-                                            <strong>🧠 AI/ML Hệ Thống:</strong><br>
-                                            • Autoencoder Neural Network<br>
-                                            • Đã train sẵn<br>
-                                            • Chất lượng tốt, offline
-                                        </div>
-                                        <div class="col-md-6">
-                                            <strong>📦 Thư Viện Tốt Nhất:</strong><br>
-                                            • NoiseReduce library<br>
-                                            • Thuật toán spectral subtraction<br>
-                                            • Xử lý nhanh, hiệu quả
-                                        </div>
-                                    </div>
-                                </div>
-                            </div>
-                        </div>
-
-                        <!-- Noise Analysis Results -->
-                        <div id="noiseAnalysis" style="display: none;">
-                            <div class="result-card">
-                                <h5><i class="fas fa-chart-bar"></i> Noise Analysis Results</h5>
-                                <div class="row">
-                                    <div class="col-md-6">
-                                        <p><strong>SNR Estimate:</strong> <span id="snrEstimate"></span> dB</p>
-                                        <p><strong>RMS Level:</strong> <span id="rmsLevel"></span></p>
-                                        <p><strong>Dynamic Range:</strong> <span id="dynamicRange"></span> dB</p>
-                                    </div>
-                                    <div class="col-md-6">
-                                        <p><strong>Recommended Method:</strong> <span id="recommendedMethod"></span></p>
-                                        <p><strong>Recommended Level:</strong> <span id="recommendedLevel"></span></p>
-                                        <p><strong>Spectral Centroid:</strong> <span id="spectralCentroid"></span> Hz</p>
-                                    </div>
-                                </div>
-                            </div>
-                        </div>
-
-                        <!-- Comparison Chart -->
-                        <div class="chart-container" id="noiseComparisonChart" style="display: none;">
-                            <canvas id="noiseChart"></canvas>
-                        </div>
-                    </div>
-                </div>
-
-                <!-- Genre Classification Tab -->
-                <div class="tab-pane fade" id="genre-classification" role="tabpanel">
-                    <div class="module-card">
-                        <div class="module-header">
-                            <h3><i class="fas fa-brain"></i> Genre Classification Engine</h3>
-                            <p class="mb-0">AI-powered music genre recognition with multiple algorithms</p>
-                        </div>
-
-                        <!-- 🎯 OPTIMIZED Genre Classification Options -->
-                        <div class="setting-group">
-                            <h5>🎵 HỆ THỐNG NHẬN DIỆN TỐI ƯU</h5>
-                            <div class="row g-3">
-                                <div class="col-md-6">
-                                    <button class="btn btn-primary w-100 h-100" id="classifyML"
-                                            title="Ensemble ML: Multiple algorithms với voting system">
-                                        <div class="d-flex flex-column align-items-center py-3">
-                                            <i class="fas fa-robot fa-2x mb-2"></i>
-                                            <h5 class="mb-1">🎯 Ensemble ML</h5>
-                                            <small class="text-light">Multiple algorithms + Voting</small>
-                                            <small class="text-light">✅ Advanced • 90% độ chính xác</small>
-                                        </div>
-                                    </button>
-                                </div>
-                                <div class="col-md-6">
-                                    <button class="btn btn-success w-100 h-100" id="classifyLibrary"
-                                            title="Deep Learning AI: TensorFlow/Musicnn neural networks">
-                                        <div class="d-flex flex-column align-items-center py-3">
-                                            <i class="fas fa-brain fa-2x mb-2"></i>
-                                            <h5 class="mb-1">🧠 Deep Learning AI</h5>
-                                            <small class="text-light">Neural Networks (TensorFlow)</small>
-                                            <small class="text-light">🚀 State-of-art • 95% độ chính xác</small>
-                                        </div>
-                                    </button>
-                                </div>
-                            </div>
-                            
-                            <!-- Updated Info Panel -->
-                            <div class="mt-3">
-                                <div class="alert alert-success">
-                                    <div class="row">
-                                        <div class="col-md-6">
-                                            <strong>🎯 Ensemble ML:</strong><br>
-                                            • Multiple ML algorithms<br>
-                                            • Intelligent voting system<br>
-                                            • 40+ advanced features
-                                        </div>
-                                        <div class="col-md-6">
-                                            <strong>🧠 Deep Learning AI:</strong><br>
-                                            • TensorFlow neural networks<br>
-                                            • Musicnn pre-trained models<br>
-                                            • State-of-the-art accuracy
-                                        </div>
-                                    </div>
-                                </div>
-                            </div>
-                        </div>
-
-                        <!-- Supported Genres -->
-                        <div class="setting-group">
-                            <h5>Supported Genres</h5>
-                            <div class="d-flex flex-wrap">
-                                <span class="genre-badge">Blues</span>
-                                <span class="genre-badge">Classical</span>
-                                <span class="genre-badge">Country</span>
-                                <span class="genre-badge">Disco</span>
-                                <span class="genre-badge">Hip-hop</span>
-                                <span class="genre-badge">Jazz</span>
-                                <span class="genre-badge">Metal</span>
-                                <span class="genre-badge">Pop</span>
-                                <span class="genre-badge">Reggae</span>
-                                <span class="genre-badge">Rock</span>
-                            </div>
-                        </div>
-
-                        <!-- Classification Results -->
-                        <div id="genreResults" style="display: none;">
-                            <div class="result-card">
-                                <h5><i class="fas fa-trophy"></i> Classification Results</h5>
-                                <div class="row">
-                                    <div class="col-md-6">
-                                        <h3>Predicted Genre: <span id="predictedGenre" class="genre-badge"></span></h3>
-                                        <p><strong>Confidence:</strong> <span id="genreConfidence"></span>%</p>
-                                        <p><strong>Method Used:</strong> <span id="methodUsed"></span></p>
-                                    </div>
-                                    <div class="col-md-6">
-                                        <div class="confidence-meter">
-                                            <div class="progress">
-                                                <div id="confidenceBar" class="progress-bar" role="progressbar" 
-                                                     style="width: 0%"></div>
-                                            </div>
-                                        </div>
-                                    </div>
-                                </div>
-                            </div>
-                        </div>
-
-                        <!-- Detailed Analysis -->
-                        <div id="detailedAnalysis" style="display: none;">
-                            <div class="setting-group">
-                                <h5>Detailed Analysis</h5>
-                                <div class="table-responsive">
-                                    <table class="table table-striped">
-                                        <thead>
-                                            <tr>
-                                                <th>Genre</th>
-                                                <th>Probability</th>
-                                                <th>Confidence Bar</th>
-                                            </tr>
-                                        </thead>
-                                        <tbody id="probabilityTable">
-                                            <!-- Populated by JavaScript -->
-                                        </tbody>
-                                    </table>
-                                </div>
-                            </div>
-                        </div>
-
-                        <!-- Model Information -->
-                        <div class="setting-group">
-                            <h5>Model Information</h5>
-                            <div class="row">
-                                <div class="col-md-6">
-                                    <p><span class="status-indicator" id="rfModelStatus"></span>Random Forest Model</p>
-                                    <p><span class="status-indicator" id="svmModelStatus"></span>SVM Model</p>
-                                    <p><span class="status-indicator" id="nnModelStatus"></span>Neural Network Model</p>
-                                </div>
-                                <div class="col-md-6">
-                                    <p><span class="status-indicator" id="lstmModelStatus"></span>LSTM Model</p>
-                                    <p><span class="status-indicator" id="cnnModelStatus"></span>CNN Model</p>
-                                    <p><strong>Training Accuracy:</strong> ~85%</p>
-                                </div>
-                            </div>
-                        </div>
-                    </div>
-                </div>
-
-                <!-- Real-time Processing Tab -->
-                <div class="tab-pane fade" id="realtime" role="tabpanel">
-                    <div class="module-card">
-                        <div class="module-header">
-                            <h3><i class="fas fa-broadcast-tower"></i> Real-time Processing Engine</h3>
-                            <p class="mb-0">Live audio processing with low latency (<200ms)</p>
-                        </div>
-
-                        <!-- Audio Device Selection -->
-                        <div class="setting-group">
-                            <h5>Audio Device Configuration</h5>
-                            <div class="row">
-                                <div class="col-md-6">
-                                    <label class="form-label">Input Device</label>
-                                    <select class="form-select" id="inputDevice">
-                                        <option value="">Default Input Device</option>
-                                    </select>
-                                </div>
-                                <div class="col-md-6">
-                                    <label class="form-label">Output Device</label>
-                                    <select class="form-select" id="outputDevice">
-                                        <option value="">Default Output Device</option>
-                                    </select>
-                                </div>
-                            </div>
-                            <div class="row mt-3">
-                                <div class="col-md-4">
-                                    <button class="btn btn-info w-100" id="refreshDevices">
-                                        <i class="fas fa-refresh"></i> Refresh Devices
-                                    </button>
-                                </div>
-                                <div class="col-md-4">
-                                    <button class="btn btn-warning-custom w-100" id="testLatency">
-                                        <i class="fas fa-stopwatch"></i> Test Latency
-                                    </button>
-                                </div>
-                            </div>
-                        </div>
-
-                        <!-- Processing Modules Enable/Disable -->
-                        <div class="setting-group">
-                            <h5>Processing Modules</h5>
-                            <div class="row">
-                                <div class="col-md-4">
-                                    <div class="form-check form-switch">
-                                        <input class="form-check-input" type="checkbox" id="enableEqualizer" checked>
-                                        <label class="form-check-label" for="enableEqualizer">
-                                            <i class="fas fa-sliders-h"></i> Equalizer
-                                        </label>
-                                    </div>
-                                </div>
-                                <div class="col-md-4">
-                                    <div class="form-check form-switch">
-                                        <input class="form-check-input" type="checkbox" id="enableNoiseReduction" checked>
-                                        <label class="form-check-label" for="enableNoiseReduction">
-                                            <i class="fas fa-magic"></i> Noise Reduction
-                                        </label>
-                                    </div>
-                                </div>
-                                <div class="col-md-4">
-                                    <div class="form-check form-switch">
-                                        <input class="form-check-input" type="checkbox" id="enableGenreClassification" checked>
-                                        <label class="form-check-label" for="enableGenreClassification">
-                                            <i class="fas fa-brain"></i> Genre Classification
-                                        </label>
-                                    </div>
-                                </div>
-                            </div>
-                        </div>
-
-                        <!-- Real-time Controls -->
-                        <div class="realtime-controls">
-                            <div class="row">
-                                <div class="col-md-6 d-flex align-items-end">
-                                    <button class="btn btn-success-custom w-100" id="startRealtime">
-                                        <i class="fas fa-play"></i> Start Real-time Processing
-                                    </button>
-                                </div>
-                                <div class="col-md-6 d-flex align-items-end">
-                                    <button class="btn btn-danger-custom w-100" id="stopRealtime" disabled>
-                                        <i class="fas fa-stop"></i> Stop Processing
-                                    </button>
-                                </div>
-                            </div>
-                        </div>
-
-                        <!-- Live Statistics -->
-                        <div id="realtimeStats" class="setting-group" style="display: none;">
-                            <h5>Live Processing Statistics</h5>
-                            <div class="row">
-                                <div class="col-md-3">
-                                    <div class="card text-center">
-                                        <div class="card-body">
-                                            <h3 id="avgLatency" class="text-primary">0 ms</h3>
-                                            <p class="card-text">Avg Latency</p>
-                                        </div>
-                                    </div>
-                                </div>
-                                <div class="col-md-3">
-                                    <div class="card text-center">
-                                        <div class="card-body">
-                                            <h3 id="chunksProcessed" class="text-success">0</h3>
-                                            <p class="card-text">Chunks Processed</p>
-                                        </div>
-                                    </div>
-                                </div>
-                                <div class="col-md-3">
-                                    <div class="card text-center">
-                                        <div class="card-body">
-                                            <h3 id="processingErrors" class="text-danger">0</h3>
-                                            <p class="card-text">Errors</p>
-                                        </div>
-                                    </div>
-                                </div>
-                                <div class="col-md-3">
-                                    <div class="card text-center">
-                                        <div class="card-body">
-                                            <h3 id="currentGenre" class="text-info">-</h3>
-                                            <p class="card-text">Current Genre</p>
-                                        </div>
-                                    </div>
-                                </div>
-                            </div>
-                        </div>
-
-                        <!-- Audio Visualizer -->
-                        <div class="audio-visualizer">
-                            <canvas id="audioVisualizer"></canvas>
-                        </div>
-
-                        <!-- Recording Controls -->
-                        <div class="setting-group">
-                            <h5>Recording Controls</h5>
-                            <div class="row">
-                                <div class="col-md-4">
-                                    <button class="btn btn-danger-custom w-100" id="startRecording">
-                                        <i class="fas fa-record-vinyl"></i> Start Recording
-                                    </button>
-                                </div>
-                                <div class="col-md-4">
-                                    <button class="btn btn-warning-custom w-100" id="stopRecording" disabled>
-                                        <i class="fas fa-stop"></i> Stop Recording
-                                    </button>
-                                </div>
-                                <div class="col-md-4">
-                                    <input type="number" class="form-control" id="recordDuration" 
-                                           placeholder="Duration (seconds)" min="1" max="300" value="30">
-                                </div>
-                            </div>
-                        </div>
-                    </div>
-                </div>
-
-                <!-- Analysis Tab -->
-                <div class="tab-pane fade" id="analysis" role="tabpanel">
-                    <div class="module-card">
-                        <div class="module-header">
-                            <h3><i class="fas fa-chart-line"></i> Audio Analysis & Visualization</h3>
-                            <p class="mb-0">Comprehensive audio analysis with visual feedback</p>
-                        </div>
-
-                        <!-- Analysis Type Selection -->
-                        <div class="setting-group">
-                            <h5>Analysis Type</h5>
-                            <div class="row">
-                                <div class="col-md-6">
-                                    <div class="form-check">
-                                        <input class="form-check-input" type="checkbox" id="analyzeWaveform" checked>
-                                        <label class="form-check-label" for="analyzeWaveform">
-                                            Waveform Analysis
-                                        </label>
-                                    </div>
-                                    <div class="form-check">
-                                        <input class="form-check-input" type="checkbox" id="analyzeSpectrogram" checked>
-                                        <label class="form-check-label" for="analyzeSpectrogram">
-                                            Spectrogram Analysis
-                                        </label>
-                                    </div>
-                                    <div class="form-check">
-                                        <input class="form-check-input" type="checkbox" id="analyzeFrequency" checked>
-                                        <label class="form-check-label" for="analyzeFrequency">
-                                            Frequency Analysis
-                                        </label>
-                                    </div>
-                                </div>
-                                <div class="col-md-6">
-                                    <div class="form-check">
-                                        <input class="form-check-input" type="checkbox" id="analyzeMFCC" checked>
-                                        <label class="form-check-label" for="analyzeMFCC">
-                                            MFCC Features
-                                        </label>
-                                    </div>
-                                    <div class="form-check">
-                                        <input class="form-check-input" type="checkbox" id="analyzeChroma" checked>
-                                        <label class="form-check-label" for="analyzeChroma">
-                                            Chroma Features
-                                        </label>
-                                    </div>
-                                    <div class="form-check">
-                                        <input class="form-check-input" type="checkbox" id="analyzeTempo">
-                                        <label class="form-check-label" for="analyzeTempo">
-                                            Tempo & Beat Analysis
-                                        </label>
-                                    </div>
-                                </div>
-                            </div>
-                            <div class="row mt-3">
-                                <div class="col-md-6 d-flex align-items-end">
-                                    <button class="btn btn-success-custom w-100" id="runAnalysis">
-                                        <i class="fas fa-play"></i> Run Analysis
-                                    </button>
-                                </div>
-                                <div class="col-md-6 d-flex align-items-end">
-                                    <button class="btn btn-info w-100" id="exportResults">
-                                        <i class="fas fa-download"></i> Export Results
-                                    </button>
-                                </div>
-                            </div>
-                        </div>
-
-                        <!-- Analysis Results -->
-                        <div id="analysisResults" style="display: none;">
-                            <div class="row">
-                                <div class="col-md-6">
-                                    <div class="chart-container">
-                                        <canvas id="waveformChart"></canvas>
-                                    </div>
-                                </div>
-                                <div class="col-md-6">
-                                    <div class="chart-container">
-                                        <canvas id="spectrogramChart"></canvas>
-                                    </div>
-                                </div>
-                            </div>
-                            <div class="row">
-                                <div class="col-md-6">
-                                    <div class="chart-container">
-                                        <canvas id="frequencyChart"></canvas>
-                                    </div>
-                                </div>
-                                <div class="col-md-6">
-                                    <div class="chart-container">
-                                        <canvas id="featuresChart"></canvas>
-                                    </div>
-                                </div>
-                            </div>
-                        </div>
-
-                        <!-- Processing Summary -->
-                        <div id="processingSummary" class="result-card" style="display: none;">
-                            <h5><i class="fas fa-chart-bar"></i> Processing Summary</h5>
-                            <div class="row">
-                                <div class="col-md-6">
-                                    <p><strong>Total Processing Time:</strong> <span id="totalTime"></span> seconds</p>
-                                    <p><strong>Equalizer Applied:</strong> <span id="eqApplied"></span></p>
-                                    <p><strong>Noise Reduction:</strong> <span id="noiseApplied"></span></p>
-                                </div>
-                                <div class="col-md-6">
-                                    <p><strong>Genre Classification:</strong> <span id="genreApplied"></span></p>
-                                    <p><strong>SNR Improvement:</strong> <span id="snrImprovement"></span> dB</p>
-                                    <p><strong>Overall Quality:</strong> <span id="overallQuality"></span></p>
-                                </div>
-                            </div>
-                        </div>
-                    </div>
-                </div>
-
-            </div>
+      <div class="main-container">
+        <!-- Header -->
+        <div class="text-center p-4">
+          <h1 class="display-4">
+            <i class="fas fa-music"></i> Advanced Audio Processing
+          </h1>
+          <p class="lead text-muted">
+            Modular Audio Processing with Equalizer, Noise Reduction, Genre
+            Classification & Real-time Processing
+          </p>
         </div>
+
+        <!-- Navigation Tabs -->
+        <div class="px-4">
+          <ul
+            class="nav nav-pills justify-content-center"
+            id="mainTabs"
+            role="tablist"
+          >
+            <li class="nav-item" role="presentation">
+              <button
+                class="nav-link active"
+                id="file-tab"
+                data-bs-toggle="pill"
+                data-bs-target="#file-processing"
+                type="button"
+                role="tab"
+              >
+                <i class="fas fa-file-audio"></i> File Upload
+              </button>
+            </li>
+            <li class="nav-item" role="presentation">
+              <button
+                class="nav-link"
+                id="equalizer-tab"
+                data-bs-toggle="pill"
+                data-bs-target="#equalizer"
+                type="button"
+                role="tab"
+              >
+                <i class="fas fa-sliders-h"></i> Equalizer
+              </button>
+            </li>
+            <li class="nav-item" role="presentation">
+              <button
+                class="nav-link"
+                id="noise-tab"
+                data-bs-toggle="pill"
+                data-bs-target="#noise-reduction"
+                type="button"
+                role="tab"
+              >
+                <i class="fas fa-magic"></i> Noise Reduction
+              </button>
+            </li>
+            <li class="nav-item" role="presentation">
+              <button
+                class="nav-link"
+                id="genre-tab"
+                data-bs-toggle="pill"
+                data-bs-target="#genre-classification"
+                type="button"
+                role="tab"
+              >
+                <i class="fas fa-brain"></i> Genre Classification
+              </button>
+            </li>
+            <li class="nav-item" role="presentation">
+              <button
+                class="nav-link"
+                id="realtime-tab"
+                data-bs-toggle="pill"
+                data-bs-target="#realtime"
+                type="button"
+                role="tab"
+              >
+                <i class="fas fa-broadcast-tower"></i> Real-time
+              </button>
+            </li>
+            <li class="nav-item" role="presentation">
+              <button
+                class="nav-link"
+                id="analysis-tab"
+                data-bs-toggle="pill"
+                data-bs-target="#analysis"
+                type="button"
+                role="tab"
+              >
+                <i class="fas fa-chart-line"></i> Analysis
+              </button>
+            </li>
+          </ul>
+        </div>
+
+        <!-- Tab Content -->
+        <div class="tab-content p-4" id="mainTabContent">
+          <!-- File Processing Tab -->
+          <div
+            class="tab-pane fade show active"
+            id="file-processing"
+            role="tabpanel"
+          >
+            <div class="module-card">
+              <div class="module-header">
+                <h3>
+                  <i class="fas fa-file-audio"></i> Audio File Upload &
+                  Management
+                </h3>
+                <p class="mb-0">
+                  Upload your audio files (MP3, WAV, FLAC) to start processing
+                </p>
+              </div>
+
+              <!-- File Upload Area -->
+              <div class="upload-area" id="uploadArea">
+                <div class="mb-3">
+                  <i class="fas fa-cloud-upload-alt fa-3x text-primary"></i>
+                </div>
+                <h4>Drop your audio file here</h4>
+                <p class="text-muted">or click to browse files</p>
+                <p class="small text-muted">
+                  Supported formats: MP3, WAV, FLAC (Max: 16MB)
+                </p>
+                <input
+                  type="file"
+                  id="audioFile"
+                  accept="audio/*"
+                  class="d-none"
+                />
+              </div>
+
+              <!-- File Info Display -->
+              <div id="fileInfo" class="mt-4" style="display: none">
+                <div class="alert alert-success">
+                  <h5>
+                    <i class="fas fa-check-circle"></i> File Loaded Successfully
+                  </h5>
+                  <div class="row">
+                    <div class="col-md-6">
+                      <p>
+                        <strong>Filename:</strong> <span id="fileName"></span>
+                      </p>
+                      <p>
+                        <strong>Duration:</strong>
+                        <span id="fileDuration"></span> seconds
+                      </p>
+                    </div>
+                    <div class="col-md-6">
+                      <p>
+                        <strong>Sample Rate:</strong>
+                        <span id="fileSampleRate"></span> Hz
+                      </p>
+                      <p>
+                        <strong>RMS Level:</strong> <span id="fileRMS"></span>
+                      </p>
+                    </div>
+                  </div>
+                </div>
+              </div>
+
+              <!-- Processing Status -->
+              <div id="processingStatus" class="mt-3" style="display: none">
+                <div class="d-flex align-items-center">
+                  <div
+                    class="spinner-border spinner-border-sm text-primary me-2"
+                    role="status"
+                  ></div>
+                  <span>Processing audio file...</span>
+                </div>
+                <div class="progress mt-2">
+                  <div
+                    class="progress-bar progress-bar-striped progress-bar-animated"
+                    role="progressbar"
+                    style="width: 0%"
+                  ></div>
+                </div>
+              </div>
+            </div>
+          </div>
+
+          <!-- Equalizer Tab -->
+          <div class="tab-pane fade" id="equalizer" role="tabpanel">
+            <div class="module-card">
+              <div class="module-header">
+                <h3>
+                  <i class="fas fa-sliders-h"></i> 10-Band Equalizer Engine
+                </h3>
+                <p class="mb-0">
+                  Professional equalizer with 10 frequency bands and presets
+                </p>
+              </div>
+
+              <!-- Preset Selection -->
+              <div class="setting-group">
+                <h5>Equalizer Presets</h5>
+                <div class="row">
+                  <div class="col-md-8">
+                    <select class="form-select" id="eqPreset">
+                      <option value="">Select a preset...</option>
+                      <option value="flat">Flat (No EQ)</option>
+                      <option value="rock">Rock</option>
+                      <option value="pop">Pop</option>
+                      <option value="classical">Classical</option>
+                      <option value="jazz">Jazz</option>
+                      <option value="bass_boost">Bass Boost</option>
+                      <option value="vocal">Vocal</option>
+                      <option value="dance">Dance</option>
+                    </select>
+                  </div>
+                  <div class="col-md-4">
+                    <button class="btn btn-custom w-100" id="loadPreset">
+                      Load Preset
+                    </button>
+                  </div>
+                </div>
+              </div>
+
+              <!-- 10-Band Equalizer Controls -->
+              <div class="setting-group">
+                <h5>Frequency Bands</h5>
+                <div class="row">
+                  <!-- Sub-bass 60Hz -->
+                  <div class="col-md-6 col-lg-4">
+                    <div class="slider-container">
+                      <div class="slider-label">
+                        <span>Sub-bass</span>
+                        <span class="frequency-display">60 Hz</span>
+                        <span id="subBassValue">0 dB</span>
+                      </div>
+                      <input
+                        type="range"
+                        class="form-range"
+                        id="subBass"
+                        min="-20"
+                        max="20"
+                        value="0"
+                        step="0.5"
+                      />
+                    </div>
+                  </div>
+
+                  <!-- Bass 170Hz -->
+                  <div class="col-md-6 col-lg-4">
+                    <div class="slider-container">
+                      <div class="slider-label">
+                        <span>Bass</span>
+                        <span class="frequency-display">170 Hz</span>
+                        <span id="bassValue">0 dB</span>
+                      </div>
+                      <input
+                        type="range"
+                        class="form-range"
+                        id="bass"
+                        min="-20"
+                        max="20"
+                        value="0"
+                        step="0.5"
+                      />
+                    </div>
+                  </div>
+
+                  <!-- Low-mid 310Hz -->
+                  <div class="col-md-6 col-lg-4">
+                    <div class="slider-container">
+                      <div class="slider-label">
+                        <span>Low-mid</span>
+                        <span class="frequency-display">310 Hz</span>
+                        <span id="lowMidValue">0 dB</span>
+                      </div>
+                      <input
+                        type="range"
+                        class="form-range"
+                        id="lowMid"
+                        min="-20"
+                        max="20"
+                        value="0"
+                        step="0.5"
+                      />
+                    </div>
+                  </div>
+
+                  <!-- Mid 600Hz -->
+                  <div class="col-md-6 col-lg-4">
+                    <div class="slider-container">
+                      <div class="slider-label">
+                        <span>Mid</span>
+                        <span class="frequency-display">600 Hz</span>
+                        <span id="midValue">0 dB</span>
+                      </div>
+                      <input
+                        type="range"
+                        class="form-range"
+                        id="mid"
+                        min="-20"
+                        max="20"
+                        value="0"
+                        step="0.5"
+                      />
+                    </div>
+                  </div>
+
+                  <!-- High-mid 1kHz -->
+                  <div class="col-md-6 col-lg-4">
+                    <div class="slider-container">
+                      <div class="slider-label">
+                        <span>High-mid</span>
+                        <span class="frequency-display">1 kHz</span>
+                        <span id="highMidValue">0 dB</span>
+                      </div>
+                      <input
+                        type="range"
+                        class="form-range"
+                        id="highMid"
+                        min="-20"
+                        max="20"
+                        value="0"
+                        step="0.5"
+                      />
+                    </div>
+                  </div>
+
+                  <!-- Presence 3kHz -->
+                  <div class="col-md-6 col-lg-4">
+                    <div class="slider-container">
+                      <div class="slider-label">
+                        <span>Presence</span>
+                        <span class="frequency-display">3 kHz</span>
+                        <span id="presenceValue">0 dB</span>
+                      </div>
+                      <input
+                        type="range"
+                        class="form-range"
+                        id="presence"
+                        min="-20"
+                        max="20"
+                        value="0"
+                        step="0.5"
+                      />
+                    </div>
+                  </div>
+
+                  <!-- Brilliance 6kHz -->
+                  <div class="col-md-6 col-lg-4">
+                    <div class="slider-container">
+                      <div class="slider-label">
+                        <span>Brilliance</span>
+                        <span class="frequency-display">6 kHz</span>
+                        <span id="brillianceValue">0 dB</span>
+                      </div>
+                      <input
+                        type="range"
+                        class="form-range"
+                        id="brilliance"
+                        min="-20"
+                        max="20"
+                        value="0"
+                        step="0.5"
+                      />
+                    </div>
+                  </div>
+
+                  <!-- Air 12kHz -->
+                  <div class="col-md-6 col-lg-4">
+                    <div class="slider-container">
+                      <div class="slider-label">
+                        <span>Air</span>
+                        <span class="frequency-display">12 kHz</span>
+                        <span id="airValue">0 dB</span>
+                      </div>
+                      <input
+                        type="range"
+                        class="form-range"
+                        id="air"
+                        min="-20"
+                        max="20"
+                        value="0"
+                        step="0.5"
+                      />
+                    </div>
+                  </div>
+
+                  <!-- Ultra-high 14kHz -->
+                  <div class="col-md-6 col-lg-4">
+                    <div class="slider-container">
+                      <div class="slider-label">
+                        <span>Ultra-high</span>
+                        <span class="frequency-display">14 kHz</span>
+                        <span id="ultraHighValue">0 dB</span>
+                      </div>
+                      <input
+                        type="range"
+                        class="form-range"
+                        id="ultraHigh"
+                        min="-20"
+                        max="20"
+                        value="0"
+                        step="0.5"
+                      />
+                    </div>
+                  </div>
+
+                  <!-- Extreme 16kHz -->
+                  <div class="col-md-6 col-lg-4">
+                    <div class="slider-container">
+                      <div class="slider-label">
+                        <span>Extreme</span>
+                        <span class="frequency-display">16 kHz</span>
+                        <span id="extremeValue">0 dB</span>
+                      </div>
+                      <input
+                        type="range"
+                        class="form-range"
+                        id="extreme"
+                        min="-20"
+                        max="20"
+                        value="0"
+                        step="0.5"
+                      />
+                    </div>
+                  </div>
+                </div>
+              </div>
+
+              <!-- Processing Controls -->
+              <div class="setting-group">
+                <div class="row">
+                  <div class="col-md-4">
+                    <label class="form-label">Processing Method</label>
+                    <select class="form-select" id="eqMethod">
+                      <option value="fft">FFT (Fast)</option>
+                      <option value="filter">IIR Filters (High Quality)</option>
+                    </select>
+                  </div>
+                  <div class="col-md-4 d-flex align-items-end">
+                    <button
+                      class="btn btn-success-custom w-100"
+                      id="processEqualizer"
+                    >
+                      <i class="fas fa-play"></i> Process Audio
+                    </button>
+                  </div>
+                  <div class="col-md-4 d-flex align-items-end">
+                    <button
+                      class="btn btn-warning-custom w-100"
+                      id="resetEqualizer"
+                    >
+                      <i class="fas fa-undo"></i> Reset All
+                    </button>
+                  </div>
+                </div>
+              </div>
+
+              <!-- Frequency Response Chart -->
+              <div class="chart-container">
+                <canvas id="frequencyResponseChart"></canvas>
+              </div>
+            </div>
+          </div>
+
+          <!-- Noise Reduction Tab -->
+          <div class="tab-pane fade" id="noise-reduction" role="tabpanel">
+            <div class="module-card">
+              <div class="module-header">
+                <h3><i class="fas fa-magic"></i> Noise Reduction Engine</h3>
+                <p class="mb-0">
+                  AI-powered noise reduction with multiple algorithms
+                </p>
+              </div>
+
+              <!-- 🔧 Noise Reduction Options -->
+              <div class="setting-group">
+                <h5>🔧 Chọn Phương Pháp Giảm Nhiễu</h5>
+                <div class="row g-3">
+                  <div class="col-md-6">
+                    <button
+                      class="btn btn-primary w-100 h-100"
+                      id="processNoiseML"
+                      title="AI/ML của hệ thống - Autoencoder đã train"
+                    >
+                      <div class="d-flex flex-column align-items-center py-3">
+                        <i class="fas fa-brain fa-2x mb-2"></i>
+                        <h5 class="mb-1">AI/ML Hệ Thống</h5>
+                        <small class="text-light"
+                          >Autoencoder Neural Network</small
+                        >
+                        <small class="text-light"
+                          >✅ Offline • Chất lượng cao</small
+                        >
+                      </div>
+                    </button>
+                  </div>
+                  <div class="col-md-6">
+                    <button
+                      class="btn btn-success w-100 h-100"
+                      id="processNoiseLibrary"
+                      title="Thư viện giảm nhiễu tốt nhất"
+                    >
+                      <div class="d-flex flex-column align-items-center py-3">
+                        <i class="fas fa-magic fa-2x mb-2"></i>
+                        <h5 class="mb-1">Thư Viện Tốt Nhất</h5>
+                        <small class="text-light">NoiseReduce Library</small>
+                        <small class="text-light">🚀 Nhanh • Hiệu quả</small>
+                      </div>
+                    </button>
+                  </div>
+                </div>
+
+                <!-- Reduction Level Control -->
+                <div class="row mt-3">
+                  <div class="col-md-6 offset-md-3">
+                    <div class="slider-container">
+                      <div class="slider-label">
+                        <span>Mức Độ Giảm Nhiễu</span>
+                        <span id="reductionValue">0.7</span>
+                      </div>
+                      <input
+                        type="range"
+                        class="form-range"
+                        id="reductionLevel"
+                        min="0.1"
+                        max="1.0"
+                        value="0.7"
+                        step="0.1"
+                      />
+                    </div>
+                  </div>
+                </div>
+
+                <!-- Info Panel -->
+                <div class="mt-3">
+                  <div class="alert alert-info">
+                    <div class="row">
+                      <div class="col-md-6">
+                        <strong>🧠 AI/ML Hệ Thống:</strong><br />
+                        • Autoencoder Neural Network<br />
+                        • Đã train sẵn<br />
+                        • Chất lượng tốt, offline
+                      </div>
+                      <div class="col-md-6">
+                        <strong>📦 Thư Viện Tốt Nhất:</strong><br />
+                        • NoiseReduce library<br />
+                        • Thuật toán spectral subtraction<br />
+                        • Xử lý nhanh, hiệu quả
+                      </div>
+                    </div>
+                  </div>
+                </div>
+              </div>
+
+              <!-- Noise Reduction Results -->
+              <div id="noiseAnalysis" style="display: none">
+                <div class="result-card">
+                  <h5>
+                    <i class="fas fa-check-circle"></i> ✅ Noise Reduction
+                    Complete
+                  </h5>
+                  <div class="row">
+                    <div class="col-md-6">
+                      <h4>
+                        📊 <strong>SNR Improvement:</strong>
+                        <span
+                          id="snrImprovement"
+                          class="text-success fs-4"
+                        ></span>
+                        dB
+                      </h4>
+                      <p>
+                        <strong>🔊 Original SNR:</strong>
+                        <span id="snrEstimate"></span> dB
+                      </p>
+                      <p>
+                        <strong>🎚️ Dynamic Range:</strong>
+                        <span id="dynamicRange"></span> dB
+                      </p>
+                    </div>
+                    <div class="col-md-6">
+                      <p>
+                        <strong>🧠 Method Used:</strong>
+                        <span
+                          id="methodUsedNoise"
+                          class="badge bg-primary"
+                        ></span>
+                      </p>
+                      <p>
+                        <strong>⚡ Processing:</strong>
+                        <span class="text-success">✅ Success</span>
+                      </p>
+                      <p>
+                        <strong>💾 Output File:</strong>
+                        <span class="text-info">processed_nr.wav</span>
+                      </p>
+                    </div>
+                  </div>
+                </div>
+              </div>
+
+              <!-- Simple Before/After Comparison -->
+              <div
+                class="chart-container"
+                id="noiseComparisonChart"
+                style="display: none"
+              >
+                <!-- Will be populated with comparison image by JavaScript -->
+              </div>
+            </div>
+          </div>
+
+          <!-- Genre Classification Tab -->
+          <div class="tab-pane fade" id="genre-classification" role="tabpanel">
+            <div class="module-card">
+              <div class="module-header">
+                <h3>
+                  <i class="fas fa-brain"></i> Genre Classification Engine
+                </h3>
+                <p class="mb-0">
+                  AI-powered music genre recognition with multiple algorithms
+                </p>
+              </div>
+
+              <!-- 🎯 OPTIMIZED Genre Classification Options -->
+              <div class="setting-group">
+                <h5>🎵 HỆ THỐNG NHẬN DIỆN TỐI ƯU</h5>
+                <div class="row g-3">
+                  <div class="col-md-6">
+                    <button
+                      class="btn btn-primary w-100 h-100"
+                      id="classifyML"
+                      title="Ensemble ML: Multiple algorithms với voting system"
+                    >
+                      <div class="d-flex flex-column align-items-center py-3">
+                        <i class="fas fa-robot fa-2x mb-2"></i>
+                        <h5 class="mb-1">🎯 Ensemble ML</h5>
+                        <small class="text-light"
+                          >Multiple algorithms + Voting</small
+                        >
+                        <small class="text-light"
+                          >✅ Advanced • 90% độ chính xác</small
+                        >
+                      </div>
+                    </button>
+                  </div>
+                  <div class="col-md-6">
+                    <button
+                      class="btn btn-success w-100 h-100"
+                      id="classifyLibrary"
+                      title="Deep Learning AI: TensorFlow/Musicnn neural networks"
+                    >
+                      <div class="d-flex flex-column align-items-center py-3">
+                        <i class="fas fa-brain fa-2x mb-2"></i>
+                        <h5 class="mb-1">🧠 Deep Learning AI</h5>
+                        <small class="text-light"
+                          >Neural Networks (TensorFlow)</small
+                        >
+                        <small class="text-light"
+                          >🚀 State-of-art • 95% độ chính xác</small
+                        >
+                      </div>
+                    </button>
+                  </div>
+                </div>
+
+                <!-- Updated Info Panel -->
+                <div class="mt-3">
+                  <div class="alert alert-success">
+                    <div class="row">
+                      <div class="col-md-6">
+                        <strong>🎯 Ensemble ML:</strong><br />
+                        • Multiple ML algorithms<br />
+                        • Intelligent voting system<br />
+                        • 40+ advanced features
+                      </div>
+                      <div class="col-md-6">
+                        <strong>🧠 Deep Learning AI:</strong><br />
+                        • TensorFlow neural networks<br />
+                        • Musicnn pre-trained models<br />
+                        • State-of-the-art accuracy
+                      </div>
+                    </div>
+                  </div>
+                </div>
+              </div>
+
+              <!-- Supported Genres -->
+              <div class="setting-group">
+                <h5>Supported Genres</h5>
+                <div class="d-flex flex-wrap">
+                  <span class="genre-badge">Blues</span>
+                  <span class="genre-badge">Classical</span>
+                  <span class="genre-badge">Country</span>
+                  <span class="genre-badge">Disco</span>
+                  <span class="genre-badge">Hip-hop</span>
+                  <span class="genre-badge">Jazz</span>
+                  <span class="genre-badge">Metal</span>
+                  <span class="genre-badge">Pop</span>
+                  <span class="genre-badge">Reggae</span>
+                  <span class="genre-badge">Rock</span>
+                </div>
+              </div>
+
+              <!-- Classification Results -->
+              <div id="genreResults" style="display: none">
+                <div class="result-card">
+                  <h5><i class="fas fa-trophy"></i> Classification Results</h5>
+                  <div class="row">
+                    <div class="col-md-8">
+                      <h3>
+                        🎵 Predicted Genre:
+                        <span id="predictedGenre" class="genre-badge"></span>
+                      </h3>
+                      <p>
+                        <strong>🎯 Confidence:</strong>
+                        <span
+                          id="genreConfidence"
+                          class="text-success fs-5"
+                        ></span
+                        >%
+                      </p>
+                      <p>
+                        <strong>🔧 Method:</strong>
+                        <span id="methodUsed"></span>
+                      </p>
+                      <p>
+                        <strong>⏱️ Status:</strong>
+                        <span class="text-success"
+                          >✅ Classification Complete</span
+                        >
+                      </p>
+                    </div>
+                    <div class="col-md-4">
+                      <div class="confidence-meter">
+                        <div class="progress" style="height: 30px">
+                          <div
+                            id="confidenceBar"
+                            class="progress-bar progress-bar-striped progress-bar-animated bg-success"
+                            role="progressbar"
+                            style="width: 0%"
+                          >
+                            <span class="fw-bold" id="confidenceText"></span>
+                          </div>
+                        </div>
+                      </div>
+                    </div>
+                  </div>
+                </div>
+              </div>
+
+              <!-- Model Information -->
+              <div class="setting-group">
+                <h5>Model Information</h5>
+                <div class="row">
+                  <div class="col-md-6">
+                    <p>
+                      <span class="status-indicator" id="rfModelStatus"></span
+                      >Random Forest Model
+                    </p>
+                    <p>
+                      <span class="status-indicator" id="svmModelStatus"></span
+                      >SVM Model
+                    </p>
+                    <p>
+                      <span class="status-indicator" id="nnModelStatus"></span
+                      >Neural Network Model
+                    </p>
+                  </div>
+                  <div class="col-md-6">
+                    <p>
+                      <span class="status-indicator" id="lstmModelStatus"></span
+                      >LSTM Model
+                    </p>
+                    <p>
+                      <span class="status-indicator" id="cnnModelStatus"></span
+                      >CNN Model
+                    </p>
+                    <p><strong>Training Accuracy:</strong> ~85%</p>
+                  </div>
+                </div>
+              </div>
+            </div>
+          </div>
+
+          <!-- Real-time Processing Tab -->
+          <div class="tab-pane fade" id="realtime" role="tabpanel">
+            <div class="module-card">
+              <div class="module-header">
+                <h3>
+                  <i class="fas fa-broadcast-tower"></i> Real-time Processing
+                  Engine
+                </h3>
+                <p class="mb-0">
+                  Live audio processing with low latency (<200ms)
+                </p>
+              </div>
+
+              <!-- Audio Device Selection -->
+              <div class="setting-group">
+                <h5>Audio Device Configuration</h5>
+                <div class="row">
+                  <div class="col-md-6">
+                    <label class="form-label">Input Device</label>
+                    <select class="form-select" id="inputDevice">
+                      <option value="">Default Input Device</option>
+                    </select>
+                  </div>
+                  <div class="col-md-6">
+                    <label class="form-label">Output Device</label>
+                    <select class="form-select" id="outputDevice">
+                      <option value="">Default Output Device</option>
+                    </select>
+                  </div>
+                </div>
+                <div class="row mt-3">
+                  <div class="col-md-4">
+                    <button class="btn btn-info w-100" id="refreshDevices">
+                      <i class="fas fa-refresh"></i> Refresh Devices
+                    </button>
+                  </div>
+                  <div class="col-md-4">
+                    <button
+                      class="btn btn-warning-custom w-100"
+                      id="testLatency"
+                    >
+                      <i class="fas fa-stopwatch"></i> Test Latency
+                    </button>
+                  </div>
+                </div>
+              </div>
+
+              <!-- Processing Modules Enable/Disable -->
+              <div class="setting-group">
+                <h5>Processing Modules</h5>
+                <div class="row">
+                  <div class="col-md-4">
+                    <div class="form-check form-switch">
+                      <input
+                        class="form-check-input"
+                        type="checkbox"
+                        id="enableEqualizer"
+                        checked
+                      />
+                      <label class="form-check-label" for="enableEqualizer">
+                        <i class="fas fa-sliders-h"></i> Equalizer
+                      </label>
+                    </div>
+                  </div>
+                  <div class="col-md-4">
+                    <div class="form-check form-switch">
+                      <input
+                        class="form-check-input"
+                        type="checkbox"
+                        id="enableNoiseReduction"
+                        checked
+                      />
+                      <label
+                        class="form-check-label"
+                        for="enableNoiseReduction"
+                      >
+                        <i class="fas fa-magic"></i> Noise Reduction
+                      </label>
+                    </div>
+                  </div>
+                  <div class="col-md-4">
+                    <div class="form-check form-switch">
+                      <input
+                        class="form-check-input"
+                        type="checkbox"
+                        id="enableGenreClassification"
+                        checked
+                      />
+                      <label
+                        class="form-check-label"
+                        for="enableGenreClassification"
+                      >
+                        <i class="fas fa-brain"></i> Genre Classification
+                      </label>
+                    </div>
+                  </div>
+                </div>
+              </div>
+
+              <!-- Real-time Controls -->
+              <div class="realtime-controls">
+                <div class="row">
+                  <div class="col-md-6 d-flex align-items-end">
+                    <button
+                      class="btn btn-success-custom w-100"
+                      id="startRealtime"
+                    >
+                      <i class="fas fa-play"></i> Start Real-time Processing
+                    </button>
+                  </div>
+                  <div class="col-md-6 d-flex align-items-end">
+                    <button
+                      class="btn btn-danger-custom w-100"
+                      id="stopRealtime"
+                      disabled
+                    >
+                      <i class="fas fa-stop"></i> Stop Processing
+                    </button>
+                  </div>
+                </div>
+              </div>
+
+              <!-- Live Statistics -->
+              <div
+                id="realtimeStats"
+                class="setting-group"
+                style="display: none"
+              >
+                <h5>Live Processing Statistics</h5>
+                <div class="row">
+                  <div class="col-md-3">
+                    <div class="card text-center">
+                      <div class="card-body">
+                        <h3 id="avgLatency" class="text-primary">0 ms</h3>
+                        <p class="card-text">Avg Latency</p>
+                      </div>
+                    </div>
+                  </div>
+                  <div class="col-md-3">
+                    <div class="card text-center">
+                      <div class="card-body">
+                        <h3 id="chunksProcessed" class="text-success">0</h3>
+                        <p class="card-text">Chunks Processed</p>
+                      </div>
+                    </div>
+                  </div>
+                  <div class="col-md-3">
+                    <div class="card text-center">
+                      <div class="card-body">
+                        <h3 id="processingErrors" class="text-danger">0</h3>
+                        <p class="card-text">Errors</p>
+                      </div>
+                    </div>
+                  </div>
+                  <div class="col-md-3">
+                    <div class="card text-center">
+                      <div class="card-body">
+                        <h3 id="currentGenre" class="text-info">-</h3>
+                        <p class="card-text">Current Genre</p>
+                      </div>
+                    </div>
+                  </div>
+                </div>
+              </div>
+
+              <!-- Audio Visualizer -->
+              <div class="audio-visualizer">
+                <canvas id="audioVisualizer"></canvas>
+              </div>
+
+              <!-- Recording Controls -->
+              <div class="setting-group">
+                <h5>Recording Controls</h5>
+                <div class="row">
+                  <div class="col-md-4">
+                    <button
+                      class="btn btn-danger-custom w-100"
+                      id="startRecording"
+                    >
+                      <i class="fas fa-record-vinyl"></i> Start Recording
+                    </button>
+                  </div>
+                  <div class="col-md-4">
+                    <button
+                      class="btn btn-warning-custom w-100"
+                      id="stopRecording"
+                      disabled
+                    >
+                      <i class="fas fa-stop"></i> Stop Recording
+                    </button>
+                  </div>
+                  <div class="col-md-4">
+                    <input
+                      type="number"
+                      class="form-control"
+                      id="recordDuration"
+                      placeholder="Duration (seconds)"
+                      min="1"
+                      max="300"
+                      value="30"
+                    />
+                  </div>
+                </div>
+              </div>
+            </div>
+          </div>
+
+          <!-- Analysis Tab -->
+          <div class="tab-pane fade" id="analysis" role="tabpanel">
+            <div class="module-card">
+              <div class="module-header">
+                <h3>
+                  <i class="fas fa-chart-line"></i> Audio Analysis &
+                  Visualization
+                </h3>
+                <p class="mb-0">
+                  Comprehensive audio analysis with visual feedback
+                </p>
+              </div>
+
+              <!-- Analysis Type Selection -->
+              <div class="setting-group">
+                <h5>Analysis Type</h5>
+                <div class="row">
+                  <div class="col-md-6">
+                    <div class="form-check">
+                      <input
+                        class="form-check-input"
+                        type="checkbox"
+                        id="analyzeWaveform"
+                        checked
+                      />
+                      <label class="form-check-label" for="analyzeWaveform">
+                        Waveform Analysis
+                      </label>
+                    </div>
+                    <div class="form-check">
+                      <input
+                        class="form-check-input"
+                        type="checkbox"
+                        id="analyzeSpectrogram"
+                        checked
+                      />
+                      <label class="form-check-label" for="analyzeSpectrogram">
+                        Spectrogram Analysis
+                      </label>
+                    </div>
+                    <div class="form-check">
+                      <input
+                        class="form-check-input"
+                        type="checkbox"
+                        id="analyzeFrequency"
+                        checked
+                      />
+                      <label class="form-check-label" for="analyzeFrequency">
+                        Frequency Analysis
+                      </label>
+                    </div>
+                  </div>
+                  <div class="col-md-6">
+                    <div class="form-check">
+                      <input
+                        class="form-check-input"
+                        type="checkbox"
+                        id="analyzeMFCC"
+                        checked
+                      />
+                      <label class="form-check-label" for="analyzeMFCC">
+                        MFCC Features
+                      </label>
+                    </div>
+                    <div class="form-check">
+                      <input
+                        class="form-check-input"
+                        type="checkbox"
+                        id="analyzeChroma"
+                        checked
+                      />
+                      <label class="form-check-label" for="analyzeChroma">
+                        Chroma Features
+                      </label>
+                    </div>
+                    <div class="form-check">
+                      <input
+                        class="form-check-input"
+                        type="checkbox"
+                        id="analyzeTempo"
+                      />
+                      <label class="form-check-label" for="analyzeTempo">
+                        Tempo & Beat Analysis
+                      </label>
+                    </div>
+                  </div>
+                </div>
+                <div class="row mt-3">
+                  <div class="col-md-6 d-flex align-items-end">
+                    <button
+                      class="btn btn-success-custom w-100"
+                      id="runAnalysis"
+                    >
+                      <i class="fas fa-play"></i> Run Analysis
+                    </button>
+                  </div>
+                  <div class="col-md-6 d-flex align-items-end">
+                    <button class="btn btn-info w-100" id="exportResults">
+                      <i class="fas fa-download"></i> Export Results
+                    </button>
+                  </div>
+                </div>
+              </div>
+
+              <!-- Analysis Results -->
+              <div id="analysisResults" style="display: none">
+                <div class="row">
+                  <div class="col-md-6">
+                    <div class="chart-container">
+                      <canvas id="waveformChart"></canvas>
+                    </div>
+                  </div>
+                  <div class="col-md-6">
+                    <div class="chart-container">
+                      <canvas id="spectrogramChart"></canvas>
+                    </div>
+                  </div>
+                </div>
+                <div class="row">
+                  <div class="col-md-6">
+                    <div class="chart-container">
+                      <canvas id="frequencyChart"></canvas>
+                    </div>
+                  </div>
+                  <div class="col-md-6">
+                    <div class="chart-container">
+                      <canvas id="featuresChart"></canvas>
+                    </div>
+                  </div>
+                </div>
+              </div>
+
+              <!-- Processing Summary -->
+              <div
+                id="processingSummary"
+                class="result-card"
+                style="display: none"
+              >
+                <h5><i class="fas fa-chart-bar"></i> Processing Summary</h5>
+                <div class="row">
+                  <div class="col-md-6">
+                    <p>
+                      <strong>Total Processing Time:</strong>
+                      <span id="totalTime"></span> seconds
+                    </p>
+                    <p>
+                      <strong>Equalizer Applied:</strong>
+                      <span id="eqApplied"></span>
+                    </p>
+                    <p>
+                      <strong>Noise Reduction:</strong>
+                      <span id="noiseApplied"></span>
+                    </p>
+                  </div>
+                  <div class="col-md-6">
+                    <p>
+                      <strong>Genre Classification:</strong>
+                      <span id="genreApplied"></span>
+                    </p>
+                    <p>
+                      <strong>SNR Improvement:</strong>
+                      <span id="snrImprovement"></span> dB
+                    </p>
+                    <p>
+                      <strong>Overall Quality:</strong>
+                      <span id="overallQuality"></span>
+                    </p>
+                  </div>
+                </div>
+              </div>
+            </div>
+          </div>
+        </div>
+      </div>
     </div>
 
     <!-- Include JavaScript -->
     <script src="https://cdn.jsdelivr.net/npm/bootstrap@5.1.3/dist/js/bootstrap.bundle.min.js"></script>
     <script src="{{ url_for('static', filename='js/modular-app.js') }}"></script>
-</body>
+  </body>
 </html>

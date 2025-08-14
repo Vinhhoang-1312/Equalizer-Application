@@ -58,13 +58,13 @@ class GenreClassificationEngine:
         self.n_chroma = 12
         self.n_mel = 128
         
-        # Import OPTIMIZED classifier with best methods
+        # Import ADVANCED classifier with best methods
         try:
-            from .optimized_genre_classifier import OptimizedGenreClassifier
-            self.advanced_classifier = OptimizedGenreClassifier()
-            print("✓ Optimized Genre Classification System loaded")
+            from .advanced_genre_classifier import AdvancedGenreClassifier
+            self.advanced_classifier = AdvancedGenreClassifier()
+            print("✓ Advanced Genre Classifier loaded (3 options)")
         except Exception as e:
-            print(f"⚠️ Optimized classifier not available: {e}")
+            print(f"⚠️ Advanced classifier not available: {e}")
             self.advanced_classifier = None
         
         # Try to load pre-trained models
