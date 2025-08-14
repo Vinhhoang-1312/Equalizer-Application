@@ -259,16 +259,58 @@ class MainApplication:
         def classify_genre_best():
             """🎯 NEW: Classify using 2 BEST methods (Musicnn, Custom ML)"""
             try:
-                if self.current_audio_path is None:
+                if self.current_file_path is None:
                     return jsonify({
                         'error': 'No audio file loaded',
                         'message': 'Please upload an audio file first'
                     }), 400
                 
-                print("🎵 Using BEST Genre Classification Methods...")
-                results = self.genre_classification_engine.classify_with_best_options(self.current_audio_path)
+                data = request.get_json()
+                option = data.get('option', 'both')
                 
-                return jsonify(results)
+                print(f"🎵 Using BEST Genre Classification Methods (option: {option})...")
+                
+                if option == 'option1':
+                    # Use Deep Learning method (TensorFlow/Musicnn/Advanced Spectral)
+                    result = self.genre_classification_engine.advanced_classifier.classify_with_deep_learning(self.current_file_path)
+                    return jsonify({
+                        'success': True,
+                        'predicted_genre': result.get('predicted_genre', 'unknown'),
+                        'confidence': result.get('confidence', 0.0),
+                        'method': result.get('method', 'Deep Learning AI'),
+                        'additional_info': result
+                    })
+                elif option == 'option2':
+                    # Use Ensemble ML method
+                    result = self.genre_classification_engine.advanced_classifier.classify_with_ensemble_ml(self.current_file_path)
+                    return jsonify({
+                        'success': True,
+                        'predicted_genre': result.get('predicted_genre', 'unknown'),
+                        'confidence': result.get('confidence', 0.0),
+                        'method': result.get('method', 'Ensemble ML'),
+                        'additional_info': result
+                    })
+                elif option == 'both':
+                    # Run both methods and choose the best
+                    result = self.genre_classification_engine.advanced_classifier.classify_best_method(self.current_file_path, 'both')
+                    
+                    if result.get('status') == 'error':
+                        return jsonify({'error': result.get('message', 'Classification failed')}), 500
+                    
+                    return jsonify({
+                        'success': True,
+                        'predicted_genre': result.get('predicted_genre', 'unknown'),
+                        'confidence': result.get('confidence', 0.0),
+                        'method': result.get('method', 'Optimized Analysis'),
+                        'comparison': result.get('comparison', ''),
+                        'additional_info': result
+                    })
+                else:
+                    return jsonify({'error': 'Invalid option parameter'}), 400
+                
+            except Exception as e:
+                print(f"❌ Genre classification error: {e}")
+                return jsonify({'error': str(e)}), 500
                 
             except Exception as e:
                 print(f"❌ Genre classification error: {e}")

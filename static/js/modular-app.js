@@ -341,17 +341,13 @@ class AdvancedAudioApp {
             document.getElementById('reductionValue').textContent = e.target.value;
         });
 
-        // Processing buttons
-        document.getElementById('processNoise').addEventListener('click', () => {
-            this.processNoiseReduction();
+        // New simplified buttons
+        document.getElementById('processNoiseML').addEventListener('click', () => {
+            this.processNoiseWithMethod('ml');
         });
 
-        document.getElementById('analyzeNoise').addEventListener('click', () => {
-            this.analyzeNoise();
-        });
-
-        document.getElementById('compareNoise').addEventListener('click', () => {
-            this.compareNoiseReduction();
+        document.getElementById('processNoiseLibrary').addEventListener('click', () => {
+            this.processNoiseWithMethod('library');
         });
     }
 
@@ -415,10 +411,59 @@ class AdvancedAudioApp {
         document.getElementById('noiseAnalysis').style.display = 'block';
     }
 
+    async processNoiseWithMethod(method) {
+        if (!this.currentFile) {
+            this.showError('Vui lòng upload file audio trước');
+            return;
+        }
+
+        const reductionLevel = parseFloat(document.getElementById('reductionLevel').value);
+
+        try {
+            let statusMessage = method === 'ml' ? 
+                'Đang giảm nhiễu với AI/ML hệ thống...' : 
+                'Đang giảm nhiễu với thư viện tốt nhất...';
+            
+            this.showProcessingStatus(statusMessage);
+
+            // Choose method based on type
+            const noiseMethod = method === 'ml' ? 'autoencoder' : 'noisereduce';
+
+            const response = await fetch('/api/noise_reduction/process', {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({
+                    method: noiseMethod,
+                    reduction_level: reductionLevel
+                })
+            });
+
+            const result = await response.json();
+
+            if (result.success) {
+                this.hideProcessingStatus();
+                this.displayNoiseResults(result);
+                
+                const methodName = method === 'ml' ? 'AI/ML Hệ Thống' : 'Thư Viện Tốt Nhất';
+                this.showSuccess(`Giảm nhiễu thành công! SNR cải thiện: ${result.snr_improvement.toFixed(2)} dB - ${methodName}`);
+            } else {
+                throw new Error(result.error);
+            }
+        } catch (error) {
+            this.hideProcessingStatus();
+            this.showError('Giảm nhiễu thất bại: ' + error.message);
+        }
+    }
+
     // Genre Classification Module
     setupGenreClassification() {
-        document.getElementById('classifyGenre').addEventListener('click', () => {
-            this.classifyGenre();
+        // New simplified buttons
+        document.getElementById('classifyML').addEventListener('click', () => {
+            this.classifyWithMethod('ml');
+        });
+
+        document.getElementById('classifyLibrary').addEventListener('click', () => {
+            this.classifyWithMethod('library');
         });
 
         // Load model status
@@ -517,6 +562,114 @@ class AdvancedAudioApp {
         } catch (error) {
             console.warn('Could not load model info:', error);
         }
+    }
+
+    async classifyWithMethod(method) {
+        if (!this.currentFile) {
+            this.showError('Vui lòng upload file audio trước');
+            return;
+        }
+
+        try {
+            let statusMessage = method === 'ml' ? 
+                'Đang phân tích với AI/ML hệ thống...' : 
+                'Đang phân tích với thư viện tốt nhất...';
+            
+            this.showProcessingStatus(statusMessage);
+
+            const endpoint = '/api/genre_classification/classify_best';
+                
+            const body = method === 'ml' ? 
+                JSON.stringify({ option: 'option2' }) :  // AI/ML Hệ Thống = Custom ML
+                JSON.stringify({ option: 'option1' });  // Thư Viện Tốt Nhất = Advanced Librosa
+
+            const response = await fetch(endpoint, {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: body
+            });
+
+            const result = await response.json();
+
+            if (result.success) {
+                this.hideProcessingStatus();
+                this.displayGenreResults(result);
+                
+                const methodName = method === 'ml' ? 'AI/ML Hệ Thống' : 'Thư Viện Tốt Nhất';
+                this.showSuccess(`Kết quả: ${result.predicted_genre} (${(result.confidence * 100).toFixed(1)}%) - ${methodName}`);
+            } else {
+                throw new Error(result.error);
+            }
+        } catch (error) {
+            this.hideProcessingStatus();
+            this.showError('Phân tích thất bại: ' + error.message);
+        }
+    }
+
+    displayBestClassificationResults(result) {
+        // Update basic results
+        document.getElementById('predictedGenre').textContent = result.predicted_genre;
+        document.getElementById('genreConfidence').textContent = (result.confidence * 100).toFixed(1);
+        document.getElementById('methodUsed').textContent = result.method || 'Advanced Classification';
+        
+        const confidenceBar = document.getElementById('confidenceBar');
+        confidenceBar.style.width = (result.confidence * 100) + '%';
+        
+        document.getElementById('genreResults').style.display = 'block';
+
+        // Show comparison results if both methods were tested
+        if (result.comparison) {
+            this.displayComparisonResults(result.comparison);
+        }
+
+        // Show detailed analysis if available
+        if (result.additional_info) {
+            if (result.additional_info.ensemble_probabilities) {
+                this.displayProbabilityTable(result.additional_info.ensemble_probabilities);
+                document.getElementById('detailedAnalysis').style.display = 'block';
+            }
+        }
+    }
+
+    displayComparisonResults(comparison) {
+        // Create comparison display if it doesn't exist
+        let comparisonDiv = document.getElementById('comparisonResults');
+        if (!comparisonDiv) {
+            comparisonDiv = document.createElement('div');
+            comparisonDiv.id = 'comparisonResults';
+            comparisonDiv.className = 'mt-3';
+            document.getElementById('genreResults').appendChild(comparisonDiv);
+        }
+
+        comparisonDiv.innerHTML = `
+            <div class="card">
+                <div class="card-header">
+                    <h6 class="mb-0"><i class="fas fa-chart-bar"></i> Method Comparison</h6>
+                </div>
+                <div class="card-body">
+                    <div class="row">
+                        <div class="col-md-6">
+                            <div class="comparison-item ${comparison.best_method === 'Musicnn' ? 'winner' : ''}">
+                                <strong>🤖 Musicnn Deep Learning</strong><br>
+                                <span class="text-info">${comparison.option1_result.predicted_genre}</span>
+                                <span class="confidence-badge">${(comparison.option1_result.confidence * 100).toFixed(1)}%</span>
+                            </div>
+                        </div>
+                        <div class="col-md-6">
+                            <div class="comparison-item ${comparison.best_method === 'Custom ML' ? 'winner' : ''}">
+                                <strong>🎯 Custom ML</strong><br>
+                                <span class="text-success">${comparison.option2_result.predicted_genre}</span>
+                                <span class="confidence-badge">${(comparison.option2_result.confidence * 100).toFixed(1)}%</span>
+                            </div>
+                        </div>
+                    </div>
+                    <div class="text-center mt-2">
+                        <span class="badge bg-primary">Winner: ${comparison.best_method}</span>
+                    </div>
+                </div>
+            </div>
+        `;
+        comparisonDiv.style.display = 'block';
     }
 
     // Real-time Processing Module
