@@ -74,12 +74,12 @@ def upload_file():
         
         # Get processing parameters
         equalizer_params = {
-            'bass_gain': float(request.form.get('bass_gain', 1.0)),
-            'mid_gain': float(request.form.get('mid_gain', 1.0)),
-            'treble_gain': float(request.form.get('treble_gain', 1.0)),
-            'sub_bass_gain': float(request.form.get('sub_bass_gain', 1.0)),
-            'presence_gain': float(request.form.get('presence_gain', 1.0)),
-            'air_gain': float(request.form.get('air_gain', 1.0))
+            'sub_bass_gain': float(request.form.get('subBassGain', 1.0)),
+            'bass_gain': float(request.form.get('bassGain', 1.0)),
+            'mid_gain': float(request.form.get('midGain', 1.0)),
+            'treble_gain': float(request.form.get('trebleGain', 1.0)),
+            'presence_gain': float(request.form.get('presenceGain', 1.0)),
+            'air_gain': float(request.form.get('airGain', 1.0))
         }
         
         denoise_method = request.form.get('denoise_method', 'autoencoder')

@@ -77,6 +77,17 @@ class AdvancedAudioProcessor:
         Returns:
             Processed audio array
         """
+
+        # In ra các dải tần và độ khuếch đại tương ứng
+        print("--- Equalizer Frequency Bands & Gains ---")
+        print(f"Sub-bass (20-60 Hz) gain: {sub_bass_gain}")
+        print(f"Bass (60-250 Hz) gain: {bass_gain}")
+        print(f"Mid (250-2000 Hz) gain: {mid_gain}")
+        print(f"Treble (2000-8000 Hz) gain: {treble_gain}")
+        print(f"Presence (8000-12000 Hz) gain: {presence_gain}")
+        print(f"Air (12000-20000 Hz) gain: {air_gain}")
+        print("-----------------------------------------")
+
         # Convert to frequency domain
         fft_audio = fft(audio)
         freqs = np.fft.fftfreq(len(audio), 1/self.sample_rate)
@@ -138,68 +149,78 @@ class AdvancedAudioProcessor:
         features = []
         
         try:
-            # MFCC features (26 features)
+            # MFCC features (13 mean + 13 std)
             mfccs = librosa.feature.mfcc(y=audio, sr=self.sample_rate, n_mfcc=13)
             features.extend([np.mean(mfccs[i]) for i in range(13)])
             features.extend([np.std(mfccs[i]) for i in range(13)])
-            
-            # Spectral features
+
+            # Delta and Delta-Delta MFCC (13 + 13)
+            mfcc_delta = librosa.feature.delta(mfccs)
+            features.extend([np.mean(mfcc_delta[i]) for i in range(13)])
+        
+            mfcc_delta2 = librosa.feature.delta(mfccs, order=2)
+            features.extend([np.mean(mfcc_delta2[i]) for i in range(13)])
+
+            # Spectral features (6 * 2 = 12)
             spectral_centroids = librosa.feature.spectral_centroid(y=audio, sr=self.sample_rate)[0]
-            features.append(np.mean(spectral_centroids))
-            features.append(np.std(spectral_centroids))
+            features.extend([np.mean(spectral_centroids), np.std(spectral_centroids)])
             
             spectral_rolloff = librosa.feature.spectral_rolloff(y=audio, sr=self.sample_rate)[0]
-            features.append(np.mean(spectral_rolloff))
-            features.append(np.std(spectral_rolloff))
+            features.extend([np.mean(spectral_rolloff), np.std(spectral_rolloff)])
             
             spectral_bandwidth = librosa.feature.spectral_bandwidth(y=audio, sr=self.sample_rate)[0]
-            features.append(np.mean(spectral_bandwidth))
-            features.append(np.std(spectral_bandwidth))
+            features.extend([np.mean(spectral_bandwidth), np.std(spectral_bandwidth)])
             
-            # Chroma features (24 features)
+            spectral_contrast = librosa.feature.spectral_contrast(y=audio, sr=self.sample_rate)
+            features.extend([np.mean(spectral_contrast), np.std(spectral_contrast)])
+            
+            spectral_flatness = librosa.feature.spectral_flatness(y=audio)[0]
+            features.extend([np.mean(spectral_flatness), np.std(spectral_flatness)])
+            
+            poly_features = librosa.feature.poly_features(y=audio, sr=self.sample_rate)
+            features.extend([np.mean(poly_features), np.std(poly_features)])
+
+            # Chroma features (12 mean + 12 std)
             chroma = librosa.feature.chroma_stft(y=audio, sr=self.sample_rate)
             features.extend([np.mean(chroma[i]) for i in range(12)])
             features.extend([np.std(chroma[i]) for i in range(12)])
-            
-            # Zero crossing rate
-            zcr = librosa.feature.zero_crossing_rate(audio)[0]
-            features.append(np.mean(zcr))
-            features.append(np.std(zcr))
-            
-            # Root mean square energy
-            rms = librosa.feature.rms(y=audio)[0]
-            features.append(np.mean(rms))
-            features.append(np.std(rms))
-            
-            # Tempo and rhythm features
+
+            # Tonnetz features (6 mean)
+            tonnetz = librosa.feature.tonnetz(y=audio, sr=self.sample_rate)
+            features.extend([np.mean(tonnetz[i]) for i in range(6)])
+
+            # Rhythm features (1 + 2 + 2 + 2 = 7)
             tempo, beats = librosa.beat.beat_track(y=audio, sr=self.sample_rate)
             features.append(tempo)
-            features.append(len(beats))
             
-            # Harmonic and percussive separation
+            onset_env = librosa.onset.onset_strength(y=audio, sr=self.sample_rate)
+            features.extend([np.mean(onset_env), np.std(onset_env)])
+            
+            if len(beats) > 1:
+                beat_intervals = np.diff(beats)
+                features.extend([np.mean(beat_intervals), np.std(beat_intervals)])
+            else:
+                features.extend([0, 0])
+            
+            tempo_curve = librosa.beat.tempo(y=audio, sr=self.sample_rate, aggregate=None)
+            features.extend([np.mean(tempo_curve), np.std(tempo_curve)])
+
+            # Harmonic and percussive components (4)
             harmonic, percussive = librosa.effects.hpss(audio)
-            harmonic_ratio = np.mean(harmonic**2) / (np.mean(harmonic**2) + np.mean(percussive**2))
-            features.append(harmonic_ratio)
-            
-            # Spectral contrast
-            contrast = librosa.feature.spectral_contrast(y=audio, sr=self.sample_rate)
-            features.extend([np.mean(contrast[i]) for i in range(7)])
-            features.extend([np.std(contrast[i]) for i in range(7)])
-            
-            # Tonnetz features
-            tonnetz = librosa.feature.tonnetz(y=harmonic, sr=self.sample_rate)
-            features.extend([np.mean(tonnetz[i]) for i in range(6)])
-            features.extend([np.std(tonnetz[i]) for i in range(6)])
-            
-            # Poly features
-            poly_features = librosa.feature.poly_features(y=audio, sr=self.sample_rate)
-            features.extend([np.mean(poly_features[i]) for i in range(2)])
-            features.extend([np.std(poly_features[i]) for i in range(2)])
-            
+            features.extend([np.mean(harmonic), np.std(harmonic), np.mean(percussive), np.std(percussive)])
+
+            # Zero crossing rate (2)
+            zcr = librosa.feature.zero_crossing_rate(audio)[0]
+            features.extend([np.mean(zcr), np.std(zcr)])
+
+            # Root mean square energy (2)
+            rms = librosa.feature.rms(y=audio)[0]
+            features.extend([np.mean(rms), np.std(rms)])
+
         except Exception as e:
             print(f"Error extracting advanced features: {e}")
-            # Return default features if extraction fails
-            features = [0.0] * 100  # Ensure consistent feature count
+            # Return default features if extraction fails, matching the expected length
+            features = [0.0] * 109
         
         return np.array(features)
     
@@ -595,6 +616,7 @@ class AdvancedAudioProcessor:
         audio, sr = librosa.load(file_path, sr=self.sample_rate)
         
         # Default equalizer parameters
+        print(f'Is Equalizer Params is None: {equalizer_params is None}')
         if equalizer_params is None:
             equalizer_params = {
                 'bass_gain': 1.0,
