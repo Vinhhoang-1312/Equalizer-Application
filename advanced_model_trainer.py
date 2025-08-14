@@ -38,6 +38,9 @@ class AdvancedModelTrainer:
         self.model_dir = 'models'
         os.makedirs(self.model_dir, exist_ok=True)
         logging.info(f"Thư mục model '{self.model_dir}' đã được tạo hoặc đã tồn tại.")
+
+        # Cache path for extracted features
+        self.features_cache_path = os.path.join('data', 'gtzan_features.npz')
         
         # Advanced features configuration
         self.feature_config = {
@@ -50,6 +53,57 @@ class AdvancedModelTrainer:
             'rhythm_features': True,
             'harmonic_features': True
         }
+    
+    def load_or_create_features(self, force_recreate=False):
+        """
+        Tải đặc trưng từ file cache nếu có, nếu không thì tạo mới.
+        Saves features to a .npz file to speed up subsequent runs.
+        """
+        if os.path.exists(self.features_cache_path) and not force_recreate:
+            logging.info(f"Đang tải đặc trưng từ file cache: {self.features_cache_path}")
+            try:
+                cached_data = np.load(self.features_cache_path)
+                X = cached_data['X']
+                y = cached_data['y']
+                logging.info("Tải đặc trưng từ cache thành công.")
+                return X, y
+            except Exception as e:
+                logging.warning(f"Lỗi khi đọc file cache: {e}. Sẽ tiến hành tạo lại.")
+
+        # If cache doesn't exist or recreation is forced, create features
+        logging.info("Bắt đầu trích xuất đặc trưng từ file audio...")
+        data_dir = os.path.join('data', 'gtzan')
+        features_list = []
+        labels_list = []
+        for genre in self.genres:
+            genre_dir = os.path.join(data_dir, genre)
+            if not os.path.isdir(genre_dir):
+                logging.warning(f"Không tìm thấy thư mục: {genre_dir}, bỏ qua thể loại này.")
+                continue
+            files = [f for f in os.listdir(genre_dir) if f.endswith('.wav')][:99]
+            logging.info(f"  Đang đọc {len(files)} file cho thể loại: {genre}")
+            for fname in files:
+                file_path = os.path.join(genre_dir, fname)
+                try:
+                    audio, _ = librosa.load(file_path, sr=self.sample_rate, mono=True)
+                    features = self.extract_advanced_features(audio)
+                    features_list.append(features)
+                    labels_list.append(genre)
+                except Exception as e:
+                    logging.error(f"Lỗi khi đọc file {file_path}: {e}")
+        
+        X = np.array(features_list)
+        y = np.array(labels_list)
+
+        # Save the extracted features to cache
+        try:
+            logging.info(f"Lưu đặc trưng đã trích xuất vào file cache: {self.features_cache_path}")
+            np.savez(self.features_cache_path, X=X, y=y)
+            logging.info("Lưu vào cache thành công.")
+        except Exception as e:
+            logging.error(f"Lỗi khi lưu file cache: {e}")
+
+        return X, y
     
     def extract_advanced_features(self, audio: np.ndarray) -> np.ndarray:
         """
@@ -591,40 +645,23 @@ class AdvancedModelTrainer:
     
     def train_all_models(self):
         """Huấn luyện tất cả mô hình từ dữ liệu thật trong data/gtzan (GTZAN)"""
-        logging.info("Bắt đầu quy trình huấn luyện tất cả các mô hình từ dữ liệu thật...")
-        data_dir = os.path.join('data', 'gtzan')
-        features_list = []
-        labels_list = []
-        for genre in self.genres:
-            genre_dir = os.path.join(data_dir, genre)
-            if not os.path.isdir(genre_dir):
-                logging.warning(f"Không tìm thấy thư mục: {genre_dir}, bỏ qua thể loại này.")
-                continue
-            files = [f for f in os.listdir(genre_dir) if f.endswith('.wav')][:99]  # Lấy tối đa 99 file đầu tiên
-            logging.info(f"  Đang đọc {len(files)} file cho thể loại: {genre}")
-            for fname in files:
-                file_path = os.path.join(genre_dir, fname)
-                try:
-                    audio, _ = librosa.load(file_path, sr=self.sample_rate, mono=True)
-                    features = self.extract_advanced_features(audio)
-                    features_list.append(features)
-                    labels_list.append(genre)
-                except Exception as e:
-                    logging.error(f"Lỗi khi đọc file {file_path}: {e}")
-        X = np.array(features_list)
-        y = np.array(labels_list)
-        
-        # Giải phóng bộ nhớ của các list trung gian
-        logging.info("Giải phóng bộ nhớ của các list đặc trưng trung gian...")
-        del features_list
-        del labels_list
-        gc.collect()
+        logging.info("Bắt đầu quy trình huấn luyện tất cả các mô hình...")
+
+        # Step 1: Load or create features for the genre classifier
+        X, y = self.load_or_create_features()
+
+        if X is None or len(X) == 0:
+            logging.error("Không có dữ liệu đặc trưng để huấn luyện. Dừng lại.")
+            return None
 
         logging.info(f"Tổng số mẫu đã trích xuất đặc trưng: {len(y)}")
-        # Train ensemble classifier
+        
+        # Step 2: Train ensemble classifier
         classifier_results = self.train_ensemble_classifier(X, y)
-        # Tạo clean audio cho noise reduction (lấy 20 file đầu mỗi genre)
+        
+        # Step 3: Prepare clean audio for noise reduction model
         logging.info("Chuẩn bị dữ liệu audio sạch cho mô hình giảm nhiễu...")
+        data_dir = os.path.join('data', 'gtzan')
         clean_audio_list = []
         for genre in self.genres[:5]:
             genre_dir = os.path.join(data_dir, genre)
@@ -638,18 +675,19 @@ class AdvancedModelTrainer:
                     clean_audio_list.append(audio)
                 except Exception as e:
                     logging.error(f"Lỗi khi đọc file {file_path} cho audio sạch: {e}")
-        # Train noise reducer
+        
+        # Step 4: Train noise reducer
         noise_reducer = self.train_noise_reducer(clean_audio_list)
 
-        # Giải phóng bộ nhớ của danh sách audio sạch
+        # Free memory for clean audio list
         logging.info("Giải phóng bộ nhớ của danh sách audio sạch...")
         del clean_audio_list
         gc.collect()
 
-        # Evaluate models
+        # Step 5: Evaluate models
         evaluation_results = self.evaluate_models(X, y)
 
-        # Giải phóng bộ nhớ của dữ liệu đặc trưng cuối cùng
+        # Free memory for the final feature data
         logging.info("Giải phóng bộ nhớ của dữ liệu đặc trưng X, y...")
         del X
         del y
