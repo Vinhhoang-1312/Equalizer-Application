@@ -50,31 +50,28 @@ class AdvancedGenreClassifier:
     
     def option1_musicnn_classify(self, audio_file_path: str) -> Dict:
         """
-        OPTION 1: Essentia - Professional audio analysis library
-        Thay thế Musicnn bằng Essentia (thư viện tốt hơn)
+        OPTION 1: Musicnn Deep Learning model (DISABLED - fallback only)
+        Due to library conflicts, using Advanced Librosa Analysis directly
         """
         try:
-            # Try Essentia first (install: pip install essentia-tensorflow)
-            try:
-                import essentia
-                import essentia.standard as es
-                print("✓ Essentia available - using real analysis")
-                return self._classify_with_essentia(audio_file_path)
-            except ImportError:
-                print("⚠️ Essentia not found, trying other methods...")
+            print("⚠️ Musicnn disabled due to dependency conflicts")
+            print("🔍 Using Advanced Librosa Analysis instead...")
             
-            # Fallback to librosa-based classification
-            return self._classify_with_librosa_advanced(audio_file_path)
+            # Use advanced librosa analysis directly
+            result = self._classify_with_librosa_advanced(audio_file_path)
+            result['method'] = 'Advanced Librosa Analysis (Musicnn Disabled)'
+            result['note'] = f"{result.get('note', '')} | Musicnn disabled due to library conflicts"
+            return result
             
         except Exception as e:
-            print(f"❌ Real classification failed: {e}")
+            print(f"❌ Classification failed: {e}")
             return {
-                'method': 'Essentia/Advanced',
+                'method': 'Advanced Analysis (Failed)',
                 'status': 'error',
-                'message': f'Real analysis failed: {str(e)}',
+                'message': f'Classification failed: {str(e)}',
                 'predicted_genre': 'unknown',
                 'confidence': 0.0,
-                'note': 'Try installing: pip install essentia-tensorflow'
+                'note': 'Analysis failed. Check audio file format.'
             }
     
     def _classify_with_essentia(self, audio_file_path: str) -> Dict:
@@ -167,53 +164,111 @@ class AdvancedGenreClassifier:
             harmonic, percussive = librosa.effects.hpss(audio)
             harmonic_ratio = np.mean(np.abs(harmonic)) / (np.mean(np.abs(percussive)) + 1e-8)
             
-            print(f"🎵 Audio features: centroid={centroid_mean:.0f}Hz, rolloff={rolloff_mean:.0f}Hz, tempo={tempo:.0f}BPM")
+            print(f"🎵 Audio features: centroid={centroid_mean:.0f}Hz, rolloff={rolloff_mean:.0f}Hz, tempo={tempo:.0f}BPM, zcr={zcr_mean:.3f}, harmonic_ratio={harmonic_ratio:.2f}")
             
-            # REFINED classification logic based on actual data analysis
-            # Metal: High freq + high energy + fast
-            if centroid_mean > 2500 and zcr_mean > 0.15 and tempo > 120:
+            # IMPROVED classification logic based on actual GTZAN data analysis
+            genre = None
+            confidence = 0.0
+            reasoning = []
+            
+            # Metal: Very high freq OR high freq + high energy
+            if centroid_mean > 3000 or (centroid_mean > 2200 and zcr_mean > 0.12):
                 genre = 'metal'
                 confidence = 0.88
-            # Classical: Low freq + high harmonic + slow
-            elif centroid_mean < 1600 and harmonic_ratio > 2.5 and tempo < 100:
+                reasoning.append(f"🔥 High spectral centroid ({centroid_mean:.0f}Hz > 3000Hz) indicates Metal")
+                if zcr_mean > 0.12:
+                    reasoning.append(f"⚡ High zero crossing rate ({zcr_mean:.3f}) shows aggressive/distorted sound")
+            # Rock: Mid freq + moderate energy (more flexible than before)
+            elif (1200 < centroid_mean < 2800 and tempo > 95 and zcr_mean > 0.035) or \
+                 (1500 < centroid_mean < 3000 and tempo > 85):
+                genre = 'rock'
+                confidence = 0.82
+                reasoning.append(f"🎸 Mid-range centroid ({centroid_mean:.0f}Hz) typical for Rock")
+                reasoning.append(f"🥁 Moderate tempo ({tempo:.0f}BPM) fits Rock range")
+                reasoning.append(f"⚡ Zero crossing rate ({zcr_mean:.3f}) shows moderate energy")
+            # Classical: Low freq + very high harmonic + slow
+            elif centroid_mean < 1400 and harmonic_ratio > 3.0 and tempo < 90:
                 genre = 'classical'
                 confidence = 0.85
-            # Disco: Bright + dance tempo + high rolloff
+                reasoning.append(f"🎼 Low centroid ({centroid_mean:.0f}Hz) typical for orchestral instruments")
+                reasoning.append(f"🎻 Very high harmonic content ({harmonic_ratio:.2f}) indicates acoustic instruments")
+                reasoning.append(f"🐌 Slow tempo ({tempo:.0f}BPM) typical for classical music")
+            # Pop: Bright + upbeat
+            elif centroid_mean > 1800 and tempo > 110 and rolloff_mean > 5000:
+                genre = 'pop'
+                confidence = 0.75
+                reasoning.append(f"✨ Bright sound ({centroid_mean:.0f}Hz) characteristic of Pop")
+                reasoning.append(f"💃 Upbeat tempo ({tempo:.0f}BPM) typical for Pop music")
+                reasoning.append(f"📻 High rolloff ({rolloff_mean:.0f}Hz) indicates commercial production")
+            # Hip-hop: Low-mid freq + moderate tempo + low harmonic
+            elif 1200 < centroid_mean < 1900 and 85 < tempo < 130 and harmonic_ratio < 2.5:
+                genre = 'hiphop'
+                confidence = 0.75
+                reasoning.append(f"🎤 Mid-low centroid ({centroid_mean:.0f}Hz) typical for Hip-hop")
+                reasoning.append(f"🎵 Moderate tempo ({tempo:.0f}BPM) fits Hip-hop range")
+                reasoning.append(f"🔊 Low harmonic content ({harmonic_ratio:.2f}) indicates electronic/sampled sounds")
+            # Disco: High rolloff + dance tempo
             elif rolloff_mean > 6000 and 115 < tempo < 135:
                 genre = 'disco'
                 confidence = 0.80
-            # Rock: Mid freq + fast tempo
-            elif 1800 < centroid_mean < 3000 and tempo > 140:
-                genre = 'rock'
-                confidence = 0.82
-            # Hip-hop: Low-mid freq + moderate tempo + low harmonic
-            elif 1400 < centroid_mean < 2000 and 90 < tempo < 120 and harmonic_ratio < 2.0:
-                genre = 'hiphop'
-                confidence = 0.75
-            # Jazz: Low freq + complex timbre + moderate tempo
-            elif centroid_mean < 1800 and tempo < 120 and mfcc_mean[1] < -15:
+                reasoning.append(f"🕺 Very high rolloff ({rolloff_mean:.0f}Hz) typical for Disco")
+                reasoning.append(f"💃 Dance tempo ({tempo:.0f}BPM) perfect for Disco")
+            # Jazz: Complex features + moderate tempo
+            elif centroid_mean < 1600 and 90 < tempo < 130 and harmonic_ratio > 2.0:
                 genre = 'jazz'
                 confidence = 0.78
-            # Blues: Very low freq + slow
-            elif centroid_mean < 1800 and tempo < 100:
+                reasoning.append(f"🎺 Low-mid centroid ({centroid_mean:.0f}Hz) typical for Jazz instruments")
+                reasoning.append(f"🎷 Moderate tempo ({tempo:.0f}BPM) fits Jazz style")
+                reasoning.append(f"🎼 Good harmonic content ({harmonic_ratio:.2f}) indicates acoustic instruments")
+            # Blues: Low freq + slow + smooth (stricter conditions)
+            elif centroid_mean < 1400 and tempo < 90 and zcr_mean < 0.05:
                 genre = 'blues'
                 confidence = 0.73
-            # Country: Moderate everything
-            elif 1600 < centroid_mean < 2500 and 100 < tempo < 130:
+                reasoning.append(f"🎸 Low centroid ({centroid_mean:.0f}Hz) typical for Blues guitar")
+                reasoning.append(f"🐌 Slow tempo ({tempo:.0f}BPM) characteristic of Blues")
+                reasoning.append(f"🎵 Smooth sound ({zcr_mean:.3f} ZCR) indicates less aggressive playing")
+            # Country: Mid freq + moderate tempo
+            elif 1300 < centroid_mean < 2200 and 90 < tempo < 125:
                 genre = 'country'
                 confidence = 0.70
-            # Reggae: Specific rhythm pattern (low harmonic + specific tempo)
-            elif 90 < tempo < 110 and harmonic_ratio < 1.2:
+                reasoning.append(f"🤠 Mid-range centroid ({centroid_mean:.0f}Hz) typical for Country")
+                reasoning.append(f"🎵 Moderate tempo ({tempo:.0f}BPM) fits Country style")
+            # Reggae: Specific rhythm pattern
+            elif 85 < tempo < 110 and harmonic_ratio < 1.8:
                 genre = 'reggae'
                 confidence = 0.68
-            # Pop: Bright + upbeat (catch remaining bright songs)
-            elif centroid_mean > 2200 and tempo > 110:
-                genre = 'pop'
-                confidence = 0.75
+                reasoning.append(f"🌴 Slow-mid tempo ({tempo:.0f}BPM) typical for Reggae")
+                reasoning.append(f"🔊 Lower harmonic content ({harmonic_ratio:.2f}) fits Reggae style")
             else:
-                # Default fallback
-                genre = 'pop'
-                confidence = 0.60
+                # Default fallback - analyze features to guess best match
+                if centroid_mean > 2500:
+                    genre = 'rock'  # High freq likely rock/metal
+                    confidence = 0.65
+                    reasoning.append(f"🤔 High centroid ({centroid_mean:.0f}Hz) suggests Rock as fallback")
+                elif tempo < 90:
+                    genre = 'blues'  # Very slow likely blues
+                    confidence = 0.60
+                    reasoning.append(f"🤔 Slow tempo ({tempo:.0f}BPM) suggests Blues as fallback")
+                else:
+                    genre = 'pop'  # Safe default
+                    confidence = 0.55
+                    reasoning.append(f"🤔 Features don't match specific patterns, defaulting to Pop")
+                
+            return {
+                'method': 'Advanced Librosa Analysis',
+                'status': 'success',
+                'predicted_genre': genre,
+                'confidence': confidence,
+                'audio_features': {
+                    'spectral_centroid': float(centroid_mean),
+                    'spectral_rolloff': float(rolloff_mean),
+                    'tempo': float(tempo),
+                    'zero_crossing_rate': float(zcr_mean),
+                    'harmonic_ratio': float(harmonic_ratio)
+                },
+                'classification_reasoning': reasoning,
+                'note': f'Analysis: Centroid={centroid_mean:.0f}Hz, Tempo={tempo:.0f}BPM, ZCR={zcr_mean:.3f}'
+            }
                 
             return {
                 'method': 'Advanced Librosa Analysis',
@@ -301,101 +356,84 @@ class AdvancedGenreClassifier:
     def _extract_advanced_features(self, audio: np.ndarray) -> np.ndarray:
         """
         Extract features compatible với trained model
-        Cần đảm bảo số features = 109 (như model expect)
+        Code đã được cải thiện - đảm bảo số features = 109
         """
         features = []
         
         try:
-            # 1. MFCC features (39 features: 13 + 13 delta + 13 delta2)
+            # MFCC features (13 mean + 13 std)
             mfccs = librosa.feature.mfcc(y=audio, sr=self.sample_rate, n_mfcc=13)
-            features.extend([np.mean(mfccs[i]) for i in range(13)])  # 13 features
-            
-            # Delta features
+            features.extend([np.mean(mfccs[i]) for i in range(13)])
+            features.extend([np.std(mfccs[i]) for i in range(13)])
+
+            # Delta and Delta-Delta MFCC (13 + 13)
             mfcc_delta = librosa.feature.delta(mfccs)
-            features.extend([np.mean(mfcc_delta[i]) for i in range(13)])  # 13 features
-            
-            # Delta2 features  
+            features.extend([np.mean(mfcc_delta[i]) for i in range(13)])
+        
             mfcc_delta2 = librosa.feature.delta(mfccs, order=2)
-            features.extend([np.mean(mfcc_delta2[i]) for i in range(13)])  # 13 features
-            
-            # 2. Spectral features (12 features)
+            features.extend([np.mean(mfcc_delta2[i]) for i in range(13)])
+
+            # Spectral features (6 * 2 = 12)
             spectral_centroids = librosa.feature.spectral_centroid(y=audio, sr=self.sample_rate)[0]
-            features.extend([np.mean(spectral_centroids), np.std(spectral_centroids)])  # 2
+            features.extend([np.mean(spectral_centroids), np.std(spectral_centroids)])
             
-            spectral_rolloff = librosa.feature.spectral_rolloff(y=audio, sr=self.sample_rate)[0] 
-            features.extend([np.mean(spectral_rolloff), np.std(spectral_rolloff)])  # 2
+            spectral_rolloff = librosa.feature.spectral_rolloff(y=audio, sr=self.sample_rate)[0]
+            features.extend([np.mean(spectral_rolloff), np.std(spectral_rolloff)])
             
             spectral_bandwidth = librosa.feature.spectral_bandwidth(y=audio, sr=self.sample_rate)[0]
-            features.extend([np.mean(spectral_bandwidth), np.std(spectral_bandwidth)])  # 2
+            features.extend([np.mean(spectral_bandwidth), np.std(spectral_bandwidth)])
             
             spectral_contrast = librosa.feature.spectral_contrast(y=audio, sr=self.sample_rate)
-            features.extend([np.mean(spectral_contrast), np.std(spectral_contrast)])  # 2
+            features.extend([np.mean(spectral_contrast), np.std(spectral_contrast)])
             
             spectral_flatness = librosa.feature.spectral_flatness(y=audio)[0]
-            features.extend([np.mean(spectral_flatness), np.std(spectral_flatness)])  # 2
+            features.extend([np.mean(spectral_flatness), np.std(spectral_flatness)])
             
-            spectral_poly_features = librosa.feature.poly_features(y=audio, sr=self.sample_rate)
-            features.extend([np.mean(spectral_poly_features), np.std(spectral_poly_features)])  # 2
-            
-            # 3. Chroma features (24 features) - FIX librosa API
-            chroma = librosa.feature.chroma_stft(y=audio, sr=self.sample_rate)  # Fixed API
-            features.extend([np.mean(chroma[i]) for i in range(12)])  # 12
-            features.extend([np.std(chroma[i]) for i in range(12)])   # 12
-            
-            # 4. Tonnetz features (6 features)
+            poly_features = librosa.feature.poly_features(y=audio, sr=self.sample_rate)
+            features.extend([np.mean(poly_features), np.std(poly_features)])
+
+            # Chroma features (12 mean + 12 std)
+            chroma = librosa.feature.chroma_stft(y=audio, sr=self.sample_rate)
+            features.extend([np.mean(chroma[i]) for i in range(12)])
+            features.extend([np.std(chroma[i]) for i in range(12)])
+
+            # Tonnetz features (6 mean)
             tonnetz = librosa.feature.tonnetz(y=audio, sr=self.sample_rate)
-            features.extend([np.mean(tonnetz[i]) for i in range(6)])  # 6
-            
-            # 5. Rhythm features (8 features)
+            features.extend([np.mean(tonnetz[i]) for i in range(6)])
+
+            # Rhythm features (1 + 2 + 2 + 2 = 7)
             tempo, beats = librosa.beat.beat_track(y=audio, sr=self.sample_rate)
-            features.append(tempo)  # 1
+            features.append(tempo)
             
             onset_env = librosa.onset.onset_strength(y=audio, sr=self.sample_rate)
-            features.extend([np.mean(onset_env), np.std(onset_env)])  # 2
+            features.extend([np.mean(onset_env), np.std(onset_env)])
             
             if len(beats) > 1:
                 beat_intervals = np.diff(beats)
-                features.extend([np.mean(beat_intervals), np.std(beat_intervals)])  # 2
+                features.extend([np.mean(beat_intervals), np.std(beat_intervals)])
             else:
-                features.extend([0, 0])  # 2
-                
-            # Tempo curve
-            tempo_curve = librosa.beat.tempo(y=audio, sr=self.sample_rate, aggregate=None)  
-            features.extend([np.mean(tempo_curve), np.std(tempo_curve)])  # 2
+                features.extend([0, 0])
             
-            # 6. Harmonic and percussive (4 features)
+            tempo_curve = librosa.beat.tempo(y=audio, sr=self.sample_rate, aggregate=None)
+            features.extend([np.mean(tempo_curve), np.std(tempo_curve)])
+
+            # Harmonic and percussive components (4)
             harmonic, percussive = librosa.effects.hpss(audio)
-            features.extend([np.mean(harmonic), np.std(harmonic), 
-                           np.mean(percussive), np.std(percussive)])  # 4
-            
-            # 7. Zero crossing rate (2 features)
+            features.extend([np.mean(harmonic), np.std(harmonic), np.mean(percussive), np.std(percussive)])
+
+            # Zero crossing rate (2)
             zcr = librosa.feature.zero_crossing_rate(audio)[0]
-            features.extend([np.mean(zcr), np.std(zcr)])  # 2
-            
-            # 8. RMS energy (2 features)
+            features.extend([np.mean(zcr), np.std(zcr)])
+
+            # Root mean square energy (2)
             rms = librosa.feature.rms(y=audio)[0]
-            features.extend([np.mean(rms), np.std(rms)])  # 2
-            
-            # Additional features to reach 109 total
-            # 9. Mel spectrogram stats (8 features)
-            mel_spec = librosa.feature.melspectrogram(y=audio, sr=self.sample_rate)
-            features.extend([
-                np.mean(mel_spec), np.std(mel_spec), np.max(mel_spec), np.min(mel_spec),
-                np.median(mel_spec), np.var(mel_spec), stats.skew(mel_spec.flatten()), 
-                stats.kurtosis(mel_spec.flatten())
-            ])  # 8
-            
+            features.extend([np.mean(rms), np.std(rms)])
+
         except Exception as e:
-            print(f"⚠️ Feature extraction error: {e}")
-            # Return zeros if extraction fails
+            print(f"Error extracting advanced features: {e}")
+            # Return default features if extraction fails, matching the expected length
             features = [0.0] * 109
-            
-        # Ensure exactly 109 features
-        if len(features) > 109:
-            features = features[:109]
-        elif len(features) < 109:
-            features.extend([0.0] * (109 - len(features)))
-            
+        
         return np.array(features)
     
     def _generate_demo_result(self, method_name: str, audio_file_path: str = None) -> Dict:

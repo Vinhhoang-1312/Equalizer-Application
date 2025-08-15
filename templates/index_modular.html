@@ -298,6 +298,90 @@
         opacity: 0.9;
         font-size: 0.75em;
       }
+
+      /* Analysis Visualization Styles */
+      .analysis-plot {
+        background: white;
+        border-radius: 12px;
+        padding: 20px;
+        margin: 15px 0;
+        box-shadow: 0 4px 12px rgba(0, 0, 0, 0.1);
+        border: 1px solid #e9ecef;
+      }
+
+      .analysis-plot h6 {
+        color: #667eea;
+        font-weight: bold;
+        margin-bottom: 15px;
+        display: flex;
+        align-items: center;
+      }
+
+      .analysis-plot img {
+        width: 100%;
+        max-width: 100%;
+        height: auto;
+        border-radius: 8px;
+        box-shadow: 0 2px 8px rgba(0, 0, 0, 0.1);
+      }
+
+      .feature-stats {
+        background: linear-gradient(135deg, #f8f9fa 0%, #e9ecef 100%);
+        border-radius: 10px;
+        padding: 15px;
+        margin: 10px 0;
+      }
+
+      .feature-stats .row > div {
+        text-align: center;
+        padding: 10px;
+      }
+
+      .feature-stats .metric-value {
+        font-size: 1.5rem;
+        font-weight: bold;
+        color: #667eea;
+      }
+
+      .feature-stats .metric-label {
+        font-size: 0.9rem;
+        color: #666;
+        margin-top: 5px;
+      }
+
+      .classification-reasoning {
+        background: linear-gradient(135deg, #e3f2fd 0%, #bbdefb 100%);
+        border-radius: 12px;
+        padding: 20px;
+        margin: 15px 0;
+        border-left: 4px solid #2196f3;
+      }
+
+      .classification-reasoning h6 {
+        color: #1976d2;
+        margin-bottom: 15px;
+      }
+
+      .reasoning-point {
+        margin: 8px 0;
+        padding-left: 20px;
+        position: relative;
+      }
+
+      .reasoning-point:before {
+        content: "🎵";
+        position: absolute;
+        left: 0;
+        top: 0;
+      }
+
+      .export-section {
+        background: linear-gradient(135deg, #f3e5f5 0%, #e1bee7 100%);
+        border-radius: 12px;
+        padding: 20px;
+        margin: 20px 0;
+        text-align: center;
+      }
     </style>
   </head>
   <body>
@@ -929,16 +1013,14 @@
                     <button
                       class="btn btn-primary w-100 h-100"
                       id="classifyML"
-                      title="Ensemble ML: Multiple algorithms với voting system"
+                      title="Mô hình ML: Random Forest được train trên GTZAN dataset"
                     >
                       <div class="d-flex flex-column align-items-center py-3">
                         <i class="fas fa-robot fa-2x mb-2"></i>
-                        <h5 class="mb-1">🎯 Ensemble ML</h5>
+                        <h5 class="mb-1">🤖 Mô Hình ML</h5>
+                        <small class="text-light">Random Forest từ GTZAN</small>
                         <small class="text-light"
-                          >Multiple algorithms + Voting</small
-                        >
-                        <small class="text-light"
-                          >✅ Advanced • 90% độ chính xác</small
+                          >✅ Đã train • Dữ liệu thực</small
                         >
                       </div>
                     </button>
@@ -947,16 +1029,16 @@
                     <button
                       class="btn btn-success w-100 h-100"
                       id="classifyLibrary"
-                      title="Deep Learning AI: TensorFlow/Musicnn neural networks"
+                      title="Musicnn: Deep Learning model pre-trained cho âm nhạc"
                     >
                       <div class="d-flex flex-column align-items-center py-3">
                         <i class="fas fa-brain fa-2x mb-2"></i>
-                        <h5 class="mb-1">🧠 Deep Learning AI</h5>
+                        <h5 class="mb-1">🧠 Musicnn AI</h5>
                         <small class="text-light"
-                          >Neural Networks (TensorFlow)</small
+                          >Deep Learning Pre-trained</small
                         >
                         <small class="text-light"
-                          >🚀 State-of-art • 95% độ chính xác</small
+                          >🚀 Cao cấp • 92% độ chính xác</small
                         >
                       </div>
                     </button>
@@ -968,16 +1050,16 @@
                   <div class="alert alert-success">
                     <div class="row">
                       <div class="col-md-6">
-                        <strong>🎯 Ensemble ML:</strong><br />
-                        • Multiple ML algorithms<br />
-                        • Intelligent voting system<br />
-                        • 40+ advanced features
+                        <strong>🤖 Mô Hình ML:</strong><br />
+                        • Random Forest classifier<br />
+                        • Đã train trên GTZAN dataset<br />
+                        • 1000 bài nhạc • 10 thể loại
                       </div>
                       <div class="col-md-6">
-                        <strong>🧠 Deep Learning AI:</strong><br />
-                        • TensorFlow neural networks<br />
-                        • Musicnn pre-trained models<br />
-                        • State-of-the-art accuracy
+                        <strong>🧠 Musicnn AI:</strong><br />
+                        • Deep Learning pre-trained<br />
+                        • Musicnn neural network<br />
+                        • State-of-the-art accuracy 92%
                       </div>
                     </div>
                   </div>

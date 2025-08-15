@@ -19,7 +19,7 @@ import time
 import matplotlib
 matplotlib.use('Agg')
 import matplotlib.pyplot as plt
-import seaborn as sns
+# import seaborn as sns  # Removed to avoid import conflicts
 import librosa.display
 from typing import Dict, List, Optional
 
@@ -28,6 +28,7 @@ from modules.equalizer_engine import EqualizerEngine
 from modules.noise_reduction_engine import NoiseReductionEngine
 from modules.genre_classification_engine import GenreClassificationEngine
 from modules.realtime_processing_engine import RealTimeProcessingEngine
+from modules.audio_analysis_engine import AudioAnalysisEngine
 
 class MainApplication:
     def __init__(self):
@@ -52,6 +53,7 @@ class MainApplication:
         self.noise_reduction_engine = NoiseReductionEngine(sample_rate=self.sample_rate)
         self.genre_classification_engine = GenreClassificationEngine(sample_rate=self.sample_rate)
         self.realtime_engine = RealTimeProcessingEngine(sample_rate=self.sample_rate)
+        self.analysis_engine = AudioAnalysisEngine()
         
         # Set up real-time engine with processing modules
         self.realtime_engine.set_processing_modules(
@@ -107,6 +109,8 @@ class MainApplication:
                     # Basic audio info
                     duration = len(audio) / self.sample_rate
                     rms = np.sqrt(np.mean(audio**2))
+                    total_samples = len(audio)
+                    channels = 1 if len(audio.shape) == 1 else audio.shape[1]
                     
                     return jsonify({
                         'success': True,
@@ -114,7 +118,9 @@ class MainApplication:
                         'filepath': filepath,
                         'duration': float(duration),
                         'rms_level': float(rms),
-                        'sample_rate': sr
+                        'sample_rate': int(sr),
+                        'total_samples': int(total_samples),
+                        'channels': int(channels)
                     })
             
             except Exception as e:
@@ -280,7 +286,7 @@ class MainApplication:
                         'confidence': result.get('confidence', 0.0),
                         'method': result.get('method', 'Advanced Analysis'),
                         'additional_info': result
-                    })
+                    }) 
                 elif option == 'option2':
                     # Use Custom ML method
                     result = self.genre_classification_engine.advanced_classifier.option2_custom_ml_classify(self.current_file_path)
@@ -440,6 +446,71 @@ class MainApplication:
                 info['available_methods'] = methods
                 return jsonify(info)
                 
+            except Exception as e:
+                return jsonify({'error': str(e)}), 500
+        
+        @self.app.route('/api/analysis/analyze', methods=['POST'])
+        def analyze_audio():
+            """Comprehensive audio analysis"""
+            try:
+                data = request.get_json()
+                
+                if not self.current_file_path:
+                    return jsonify({'error': 'No audio file uploaded'}), 400
+                
+                # Get analysis options from request
+                analysis_options = data.get('options', {
+                    'waveform': True,
+                    'spectrogram': True,
+                    'frequency': True,
+                    'mfcc': True,
+                    'chroma': True,
+                    'tempo': True
+                })
+                
+                # Perform comprehensive analysis
+                result = self.analysis_engine.analyze_audio_comprehensive(
+                    self.current_file_path, 
+                    analysis_options
+                )
+                
+                if result['success']:
+                    # Store results for potential export
+                    self.processing_results['analysis'] = result['results']
+                    
+                    return jsonify({
+                        'success': True,
+                        'results': result['results'],
+                        'message': result['message']
+                    })
+                else:
+                    return jsonify({
+                        'success': False,
+                        'error': result['error']
+                    }), 500
+                    
+            except Exception as e:
+                return jsonify({'error': str(e)}), 500
+        
+        @self.app.route('/api/analysis/export', methods=['POST'])
+        def export_analysis():
+            """Export analysis results"""
+            try:
+                result = self.analysis_engine.export_analysis_report()
+                
+                if result['success']:
+                    return jsonify({
+                        'success': True,
+                        'report_file': result['report_file'],
+                        'plot_files': result['plot_files'],
+                        'message': result['message']
+                    })
+                else:
+                    return jsonify({
+                        'success': False,
+                        'error': result.get('error', 'Export failed')
+                    }), 500
+                    
             except Exception as e:
                 return jsonify({'error': str(e)}), 500
     
