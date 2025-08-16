@@ -766,7 +766,7 @@ class NoiseReductionEngine:
             return "Kết quả khá tốt, có thể tinh chỉnh tham số để tối ưu hơn"
 
     def _create_comparison_charts(self, original_audio: np.ndarray, processed_audio: np.ndarray, method: str, analysis_data: Dict) -> str:
-        """Tạo biểu đồ so sánh chi tiết với nhiều visualization"""
+        """Tạo biểu đồ so sánh chi tiết TRƯỚC vs SAU xử lý"""
         try:
             import matplotlib.pyplot as plt
             import matplotlib
@@ -774,249 +774,208 @@ class NoiseReductionEngine:
             
             try:
                 import seaborn as sns
-                # Set style for better visuals
-                plt.style.use('default')  # Use default instead of seaborn-v0_8
+                plt.style.use('default')
                 sns.set_palette("husl")
             except ImportError:
-                # If seaborn not available, use matplotlib defaults
                 plt.style.use('default')
                 pass
             
-            # Limit audio length to avoid memory issues
-            max_samples = 44100  # ~2 seconds at 22050 Hz
+            # Limit audio length
+            max_samples = 44100
             if len(original_audio) > max_samples:
                 original_audio = original_audio[:max_samples]
             if len(processed_audio) > max_samples:
                 processed_audio = processed_audio[:max_samples]
             
-            # Create a comprehensive figure with 6 subplots
-            fig = plt.figure(figsize=(18, 14))
-            fig.suptitle(f'🎵 Advanced Noise Reduction Analysis - {method.upper()}', 
-                        fontsize=18, fontweight='bold', y=0.98)
+            # Create BEFORE vs AFTER comparison layout: 4 rows x 2 columns
+            fig, axes = plt.subplots(4, 2, figsize=(16, 20))
+            fig.suptitle(f'🎵 NOISE REDUCTION: TRƯỚC vs SAU - {method.upper()}\n👈 BEFORE (Có Nhiễu) vs AFTER (Đã Lọc) 👉', 
+                        fontsize=16, fontweight='bold', y=0.98)
 
-            # 1. Waveform comparison (top-left)
-            ax1 = plt.subplot(3, 3, 1)
-            downsample_factor = max(1, len(original_audio) // 2000)  # More points for better resolution
+            # ROW 1: WAVEFORM COMPARISON - BEFORE vs AFTER
+            # Left: Original (BEFORE)
+            ax_orig_wave = axes[0, 0]
+            downsample_factor = max(1, len(original_audio) // 2000)
             orig_downsampled = original_audio[::downsample_factor]
-            proc_downsampled = processed_audio[::downsample_factor]
-            
             time_orig = np.linspace(0, len(orig_downsampled)/self.sample_rate*downsample_factor, len(orig_downsampled))
+            
+            ax_orig_wave.plot(time_orig, orig_downsampled, color='#ff4757', linewidth=1.2, alpha=0.8)
+            ax_orig_wave.set_title('🔴 TRƯỚC: Audio Gốc (Có Nhiễu)', fontweight='bold', fontsize=12, color='#ff4757')
+            ax_orig_wave.set_xlabel('Time (s)')
+            ax_orig_wave.set_ylabel('Amplitude')
+            ax_orig_wave.grid(True, alpha=0.3)
+            ax_orig_wave.set_facecolor('#fff5f5')
+            
+            # Right: Processed (AFTER)
+            ax_proc_wave = axes[0, 1]
+            proc_downsampled = processed_audio[::downsample_factor]
             time_proc = np.linspace(0, len(proc_downsampled)/self.sample_rate*downsample_factor, len(proc_downsampled))
             
-            ax1.plot(time_orig, orig_downsampled, alpha=0.8, label='🔴 Original (Có nhiễu)', 
-                    color='#ff6b6b', linewidth=1.2)
-            ax1.plot(time_proc, proc_downsampled, alpha=0.8, label='🟢 Processed (Đã lọc)', 
-                    color='#4ecdc4', linewidth=1.2)
-            ax1.set_title('📊 Waveform Comparison', fontweight='bold', fontsize=12)
-            ax1.set_xlabel('Time (s)', fontsize=10)
-            ax1.set_ylabel('Amplitude', fontsize=10)
-            ax1.legend(fontsize=9)
-            ax1.grid(True, alpha=0.3)
-            ax1.set_facecolor('#f8f9fa')
+            ax_proc_wave.plot(time_proc, proc_downsampled, color='#2ed573', linewidth=1.2, alpha=0.8)
+            ax_proc_wave.set_title('� SAU: Audio Đã Lọc (Giảm Nhiễu)', fontweight='bold', fontsize=12, color='#2ed573')
+            ax_proc_wave.set_xlabel('Time (s)')
+            ax_proc_wave.set_ylabel('Amplitude')
+            ax_proc_wave.grid(True, alpha=0.3)
+            ax_proc_wave.set_facecolor('#f5fff5')
 
-            # 2. Frequency spectrum comparison (top-center)
-            ax2 = plt.subplot(3, 3, 2)
-            fft_size = min(2048, len(original_audio))  # Larger FFT for better resolution
+            # ROW 2: FREQUENCY SPECTRUM COMPARISON
+            fft_size = min(2048, len(original_audio))
             orig_fft = np.abs(np.fft.fft(original_audio[:fft_size]))[:fft_size//2]
             proc_fft = np.abs(np.fft.fft(processed_audio[:fft_size]))[:fft_size//2]
             freqs = np.fft.fftfreq(fft_size, 1/self.sample_rate)[:fft_size//2]
             
-            ax2.semilogy(freqs, orig_fft, alpha=0.8, label='🔴 Original', 
-                        color='#ff6b6b', linewidth=1.5)
-            ax2.semilogy(freqs, proc_fft, alpha=0.8, label='🟢 Processed', 
-                        color='#4ecdc4', linewidth=1.5)
-            ax2.set_title('🎼 Frequency Spectrum Analysis', fontweight='bold', fontsize=12)
-            ax2.set_xlabel('Frequency (Hz)', fontsize=10)
-            ax2.set_ylabel('Magnitude (Log Scale)', fontsize=10)
-            ax2.legend(fontsize=9)
-            ax2.grid(True, alpha=0.3)
-            ax2.set_facecolor('#f8f9fa')
+            # Left: Original Spectrum
+            ax_orig_freq = axes[1, 0]
+            ax_orig_freq.semilogy(freqs, orig_fft, color='#ff4757', linewidth=1.5, alpha=0.8)
+            ax_orig_freq.set_title('🔴 TRƯỚC: Phổ Tần Số (Nhiều Noise)', fontweight='bold', fontsize=12, color='#ff4757')
+            ax_orig_freq.set_xlabel('Frequency (Hz)')
+            ax_orig_freq.set_ylabel('Magnitude (Log)')
+            ax_orig_freq.grid(True, alpha=0.3)
+            ax_orig_freq.set_facecolor('#fff5f5')
+            
+            # Right: Processed Spectrum
+            ax_proc_freq = axes[1, 1]
+            ax_proc_freq.semilogy(freqs, proc_fft, color='#2ed573', linewidth=1.5, alpha=0.8)
+            ax_proc_freq.set_title('🟢 SAU: Phổ Tần Số (Noise Đã Giảm)', fontweight='bold', fontsize=12, color='#2ed573')
+            ax_proc_freq.set_xlabel('Frequency (Hz)')
+            ax_proc_freq.set_ylabel('Magnitude (Log)')
+            ax_proc_freq.grid(True, alpha=0.3)
+            ax_proc_freq.set_facecolor('#f5fff5')
 
-            # 3. Metrics comparison bar chart (top-right)
-            ax3 = plt.subplot(3, 3, 3)
+            # ROW 3: SPECTROGRAM COMPARISON
+            hop_length = 512
+            n_fft = 1024
+            
+            # Left: Original Spectrogram
+            ax_orig_spec = axes[2, 0]
+            stft_orig = np.abs(self._compute_stft(original_audio, n_fft=n_fft, hop_length=hop_length))
+            stft_orig_db = 20 * np.log10(stft_orig + 1e-10)
+            
+            im1 = ax_orig_spec.imshow(stft_orig_db, aspect='auto', origin='lower', cmap='Reds', vmin=-60, vmax=0)
+            ax_orig_spec.set_title('🔴 TRƯỚC: Spectrogram (Noise Rõ Ràng)', fontweight='bold', fontsize=12, color='#ff4757')
+            ax_orig_spec.set_xlabel('Time Frames')
+            ax_orig_spec.set_ylabel('Frequency Bins')
+            plt.colorbar(im1, ax=ax_orig_spec, label='Magnitude (dB)')
+            
+            # Right: Processed Spectrogram
+            ax_proc_spec = axes[2, 1]
+            stft_proc = np.abs(self._compute_stft(processed_audio, n_fft=n_fft, hop_length=hop_length))
+            stft_proc_db = 20 * np.log10(stft_proc + 1e-10)
+            
+            im2 = ax_proc_spec.imshow(stft_proc_db, aspect='auto', origin='lower', cmap='Greens', vmin=-60, vmax=0)
+            ax_proc_spec.set_title('🟢 SAU: Spectrogram (Noise Đã Sạch)', fontweight='bold', fontsize=12, color='#2ed573')
+            ax_proc_spec.set_xlabel('Time Frames')
+            ax_proc_spec.set_ylabel('Frequency Bins')
+            plt.colorbar(im2, ax=ax_proc_spec, label='Magnitude (dB)')
+
+            # ROW 4: METRICS & SUMMARY
+            # Left: Bar Chart Comparison
+            ax_metrics = axes[3, 0]
             original_metrics = analysis_data.get('original_metrics', {})
             processed_metrics = analysis_data.get('processed_metrics', {})
             
-            metrics = {
-                'SNR (dB)': [original_metrics.get('snr_estimate', 0.0), processed_metrics.get('snr_estimate', 0.0)],
-                'RMS Level': [original_metrics.get('rms_level', 0.0) * 1000, processed_metrics.get('rms_level', 0.0) * 1000],
-                'Dynamic Range': [original_metrics.get('dynamic_range', 0.0), processed_metrics.get('dynamic_range', 0.0)]
-            }
+            metrics_names = ['SNR (dB)', 'RMS Level×1000', 'Dynamic Range']
+            orig_values = [
+                original_metrics.get('snr_estimate', 0.0),
+                original_metrics.get('rms_level', 0.0) * 1000,
+                original_metrics.get('dynamic_range', 0.0)
+            ]
+            proc_values = [
+                processed_metrics.get('snr_estimate', 0.0),
+                processed_metrics.get('rms_level', 0.0) * 1000,
+                processed_metrics.get('dynamic_range', 0.0)
+            ]
             
-            x = np.arange(len(metrics))
+            x = np.arange(len(metrics_names))
             width = 0.35
             
-            orig_values = [metrics[key][0] for key in metrics]
-            proc_values = [metrics[key][1] for key in metrics]
+            bars1 = ax_metrics.bar(x - width/2, orig_values, width, label='🔴 TRƯỚC', color='#ff4757', alpha=0.8)
+            bars2 = ax_metrics.bar(x + width/2, proc_values, width, label='🟢 SAU', color='#2ed573', alpha=0.8)
             
-            bars1 = ax3.bar(x - width/2, orig_values, width, label='Original', color='#ff6b6b', alpha=0.8)
-            bars2 = ax3.bar(x + width/2, proc_values, width, label='Processed', color='#4ecdc4', alpha=0.8)
-            
-            ax3.set_title('📈 Audio Metrics Comparison', fontweight='bold')
-            ax3.set_xlabel('Metrics')
-            ax3.set_ylabel('Values')
-            ax3.set_xticks(x)
-            ax3.set_xticklabels(list(metrics.keys()), rotation=45)
-            ax3.legend()
-            ax3.grid(True, alpha=0.3)
+            ax_metrics.set_title('� So Sánh Metrics: TRƯỚC vs SAU', fontweight='bold', fontsize=12)
+            ax_metrics.set_xlabel('Audio Metrics')
+            ax_metrics.set_ylabel('Values')
+            ax_metrics.set_xticks(x)
+            ax_metrics.set_xticklabels(metrics_names, rotation=15)
+            ax_metrics.legend(fontsize=10)
+            ax_metrics.grid(True, alpha=0.3)
             
             # Add value labels on bars
             for bar in bars1:
                 height = bar.get_height()
-                ax3.text(bar.get_x() + bar.get_width()/2., height,
-                        f'{height:.2f}', ha='center', va='bottom', fontsize=8)
+                ax_metrics.text(bar.get_x() + bar.get_width()/2., height,
+                        f'{height:.1f}', ha='center', va='bottom', fontsize=9, color='#ff4757')
             for bar in bars2:
                 height = bar.get_height()
-                ax3.text(bar.get_x() + bar.get_width()/2., height,
-                        f'{height:.2f}', ha='center', va='bottom', fontsize=8)
+                ax_metrics.text(bar.get_x() + bar.get_width()/2., height,
+                        f'{height:.1f}', ha='center', va='bottom', fontsize=9, color='#2ed573')
 
-            # 4. Amplitude distribution histogram (middle-left)
-            ax4 = plt.subplot(3, 3, 4)
-            ax4.hist(original_audio, bins=50, alpha=0.7, label='Original', color='#ff6b6b', density=True)
-            ax4.hist(processed_audio, bins=50, alpha=0.7, label='Processed', color='#4ecdc4', density=True)
-            ax4.set_title('📊 Amplitude Distribution', fontweight='bold')
-            ax4.set_xlabel('Amplitude')
-            ax4.set_ylabel('Density')
-            ax4.legend()
-            ax4.grid(True, alpha=0.3)
-
-            # 5. Spectrogram of original audio (middle-center)
-            ax5 = plt.subplot(3, 3, 5)
-            # Use smaller hop length for better time resolution
-            hop_length = 512
-            n_fft = 1024
+            # Right: Improvement Summary
+            ax_summary = axes[3, 1]
+            ax_summary.axis('off')
             
-            # Compute spectrogram for original
-            stft_orig = np.abs(self._compute_stft(original_audio, n_fft=n_fft, hop_length=hop_length))
-            stft_orig_db = 20 * np.log10(stft_orig + 1e-10)
-            
-            im1 = ax5.imshow(stft_orig_db, aspect='auto', origin='lower', cmap='viridis')
-            ax5.set_title('🌈 Original Spectrogram', fontweight='bold')
-            ax5.set_xlabel('Time Frames')
-            ax5.set_ylabel('Frequency Bins')
-            plt.colorbar(im1, ax=ax5, label='Magnitude (dB)')
-
-            # 6. Spectrogram of processed audio (middle-right)
-            ax6 = plt.subplot(3, 3, 6)
-            # Compute spectrogram for processed
-            stft_proc = np.abs(self._compute_stft(processed_audio, n_fft=n_fft, hop_length=hop_length))
-            stft_proc_db = 20 * np.log10(stft_proc + 1e-10)
-            
-            im2 = ax6.imshow(stft_proc_db, aspect='auto', origin='lower', cmap='viridis')
-            ax6.set_title('✨ Processed Spectrogram', fontweight='bold')
-            ax6.set_xlabel('Time Frames')
-            ax6.set_ylabel('Frequency Bins')
-            plt.colorbar(im2, ax=ax6, label='Magnitude (dB)')
-
-            # 7. SNR improvement over time (bottom-left)
-            ax7 = plt.subplot(3, 3, 7)
-            # Calculate SNR in sliding windows
-            window_size = len(original_audio) // 10
-            if window_size > 0:
-                snr_orig_windows = []
-                snr_proc_windows = []
-                for i in range(0, len(original_audio) - window_size, window_size):
-                    orig_window = original_audio[i:i+window_size]
-                    proc_window = processed_audio[i:i+window_size]
-                    
-                    snr_orig = self._estimate_snr_simple(orig_window)
-                    snr_proc = self._estimate_snr_simple(proc_window)
-                    
-                    snr_orig_windows.append(snr_orig)
-                    snr_proc_windows.append(snr_proc)
-                
-                time_windows = np.arange(len(snr_orig_windows)) * (window_size / self.sample_rate)
-                ax7.plot(time_windows, snr_orig_windows, 'o-', label='Original SNR', color='#ff6b6b', linewidth=2)
-                ax7.plot(time_windows, snr_proc_windows, 'o-', label='Processed SNR', color='#4ecdc4', linewidth=2)
-                ax7.fill_between(time_windows, snr_orig_windows, snr_proc_windows, alpha=0.3, color='#95e1d3')
-            
-            ax7.set_title('📈 SNR Over Time', fontweight='bold')
-            ax7.set_xlabel('Time (s)')
-            ax7.set_ylabel('SNR (dB)')
-            ax7.legend()
-            ax7.grid(True, alpha=0.3)
-
-            # 8. Noise reduction effectiveness (bottom-center)
-            ax8 = plt.subplot(3, 3, 8)
             comparison_metrics = analysis_data.get('comparison_metrics', {})
-            
-            effectiveness = {
-                'SNR Improvement': comparison_metrics.get('snr_improvement_db', 0.0),
-                'RMS Reduction': comparison_metrics.get('rms_reduction_percent', 0.0),
-                'Noise Floor Drop': comparison_metrics.get('noise_floor_reduction_db', 0.0)
-            }
-            
-            colors = ['#ff9999', '#66b3ff', '#99ff99']
-            bars = ax8.bar(effectiveness.keys(), effectiveness.values(), color=colors, alpha=0.8)
-            ax8.set_title('🎯 Effectiveness Metrics', fontweight='bold')
-            ax8.set_ylabel('Improvement')
-            ax8.grid(True, alpha=0.3)
-            
-            # Add value labels
-            for bar, value in zip(bars, effectiveness.values()):
-                height = bar.get_height()
-                ax8.text(bar.get_x() + bar.get_width()/2., height,
-                        f'{value:.2f}', ha='center', va='bottom', fontweight='bold')
-
-            # 9. Summary and quality assessment (bottom-right)
-            ax9 = plt.subplot(3, 3, 9)
-            ax9.axis('off')
-            
             snr_improvement = comparison_metrics.get('snr_improvement_db', 0.0)
             rms_reduction = comparison_metrics.get('rms_reduction_percent', 0.0)
             
             # Quality assessment
             if snr_improvement > 5:
-                quality = "EXCELLENT ✨"
-                quality_color = "#4ecdc4"
+                quality = "XUẤT SẮC ✨"
+                quality_color = "#2ed573"
+                quality_emoji = "🌟"
             elif snr_improvement > 2:
-                quality = "GOOD ✅"
-                quality_color = "#95e1d3"
+                quality = "TỐT ✅"
+                quality_color = "#3c40c6"
+                quality_emoji = "👍"
             elif snr_improvement > 0:
-                quality = "FAIR ⚠️"
-                quality_color = "#ffd93d"
+                quality = "KHẤP KHIỂN ⚠️"
+                quality_color = "#ffa502"
+                quality_emoji = "⚡"
             else:
-                quality = "POOR ❌"
-                quality_color = "#ff6b6b"
+                quality = "CẦN CẢI THIỆN ❌"
+                quality_color = "#ff4757"
+                quality_emoji = "🔧"
             
-            summary_text = f"""🎵 NOISE REDUCTION SUMMARY
+            # Calculate percentage improvement
+            orig_snr = original_metrics.get('snr_estimate', 0.0)
+            improvement_percent = (snr_improvement / max(orig_snr, 0.1)) * 100 if orig_snr > 0 else 0
             
-Method: {method.upper()}
-Quality: {quality}
+            summary_text = f"""{quality_emoji} KẾT QUẢ SO SÁNH
+            
+🎵 Phương Pháp: {method.upper()}
+{quality_emoji} Chất Lượng: {quality}
 
-📊 Key Metrics:
-• SNR Improvement: {snr_improvement:.2f} dB
-• RMS Reduction: {rms_reduction:.1f}%
-• Processing Quality: {quality}
+� HIỆU QUẢ TRƯỚC vs SAU:
+• SNR Cải Thiện: +{snr_improvement:.2f} dB
+• RMS Giảm: {rms_reduction:.1f}%
+• Tỷ Lệ Cải Thiện: {improvement_percent:.1f}%
 
-🔧 Technical Info:
+🔧 CHI TIẾT KỸ THUẬT:
 • Sample Rate: {self.sample_rate} Hz
-• Audio Length: {len(original_audio)/self.sample_rate:.2f}s
-• Method: {method.title()} Algorithm
+• Độ Dài: {len(original_audio)/self.sample_rate:.2f}s
+• Thuật Toán: {method.title()}
+
+💡 ĐÁNH GIÁ:
+{quality_emoji} {quality}
+{"Noise đã được loại bỏ hiệu quả!" if snr_improvement > 2 else "Có thể cần điều chỉnh tham số để tối ưu hơn."}
 """
             
-            ax9.text(0.05, 0.95, summary_text, transform=ax9.transAxes, 
-                    fontsize=10, verticalalignment='top', 
-                    bbox=dict(boxstyle="round,pad=0.5", facecolor=quality_color, alpha=0.3))
+            ax_summary.text(0.05, 0.95, summary_text, transform=ax_summary.transAxes, 
+                    fontsize=11, verticalalignment='top', fontweight='bold',
+                    bbox=dict(boxstyle="round,pad=0.5", facecolor=quality_color, alpha=0.2))
 
             plt.tight_layout()
             
-            # Add a subtle watermark
-            fig.text(0.99, 0.01, 'Advanced Audio Processing System', 
-                    fontsize=8, alpha=0.5, ha='right', va='bottom')
+            # Add watermark
+            fig.text(0.99, 0.01, 'Advanced Audio Processing - Before vs After Comparison', 
+                    fontsize=8, alpha=0.6, ha='right', va='bottom')
             
-            # Save chart with higher DPI for better quality
-            chart_path = f'static/results/advanced_noise_analysis_{method}_{int(time.time())}.png'
+            # Save chart
+            chart_path = f'static/results/comparison_before_after_{method}_{int(time.time())}.png'
             os.makedirs(os.path.dirname(chart_path), exist_ok=True)
             plt.savefig(chart_path, dpi=300, bbox_inches='tight', 
                        facecolor='white', edgecolor='none')
             plt.close()
-            
-            # Create additional 3D visualization if possible
-            try:
-                self._create_3d_spectrogram(original_audio, processed_audio, method)
-            except Exception as e:
-                print(f"⚠️ Could not create 3D visualization: {e}")
             
             return chart_path
 
