@@ -45,7 +45,7 @@ def test_audio_file(file_path, expected_genre="rock"):
         
         # Test with classifier
         classifier = AdvancedGenreClassifier()
-        result = classifier.option1_musicnn_classify(file_path)
+    result = classifier.option1_librosa_classify(file_path)
         
         print(f"\n🤖 Classification Result:")
         print(f"   Method: {result['method']}")

@@ -28,7 +28,8 @@ class AdvancedAudioApp {
     this.setupEqualizer();
     this.setupNoiseReduction();
     this.setupGenreClassification();
-    this.setupRealtimeProcessing();
+    // Chỉ khởi tạo khi tab Real-time được chọn
+    this.setupTabSwitching();
     this.setupAnalysis();
     this.setupSocketEvents();
 
@@ -40,6 +41,27 @@ class AdvancedAudioApp {
     console.log("✓ Advanced Audio Processing App initialized");
   }
 
+  setupTabSwitching() {
+    const mainTabs = document.querySelectorAll('button[data-bs-toggle="pill"]');
+    mainTabs.forEach((tabBtn) => {
+      tabBtn.addEventListener("shown.bs.tab", (e) => {
+        const target = e.target.getAttribute("data-bs-target");
+        if (target === "#real-time") {
+          this.setupRealtimeProcessing();
+        } else {
+          this.resetRealtimeRecordingUI();
+        }
+      });
+    });
+  }
+
+  resetRealtimeRecordingUI() {
+    // Reset trạng thái nút ghi âm khi chuyển tab
+    const startBtn = document.getElementById("startRecording");
+    const stopBtn = document.getElementById("stopRecording");
+    if (startBtn) startBtn.disabled = false;
+    if (stopBtn) stopBtn.disabled = true;
+  }
   // File Upload Module
   setupFileUpload() {
     const uploadArea = document.getElementById("uploadArea");
@@ -483,7 +505,7 @@ class AdvancedAudioApp {
     );
 
     try {
-      this.showProcessingStatus("Reducing noise...");
+      this.showProcessingStatus("Reducing noise và tạo phân tích so sánh...");
 
       const response = await fetch("/api/noise_reduction/process", {
         method: "POST",
@@ -498,9 +520,13 @@ class AdvancedAudioApp {
 
       if (result.success) {
         this.hideProcessingStatus();
-        this.displayNoiseResults(result);
+        this.displayAdvancedNoiseResults(result);
+
+        const snrImprovement =
+          result.comparison_analysis?.comparison_metrics?.snr_improvement_db ||
+          0;
         this.showSuccess(
-          `Noise reduced! SNR improvement: ${result.snr_improvement.toFixed(
+          `✓ Noise reduction hoàn thành! SNR cải thiện: ${snrImprovement.toFixed(
             2
           )} dB`
         );
@@ -522,6 +548,342 @@ class AdvancedAudioApp {
     // This would typically call a specific analyze endpoint
     // For now, we'll show the analysis from the last processing
     document.getElementById("noiseAnalysis").style.display = "block";
+  }
+
+  displayAdvancedNoiseResults(result) {
+    const comparisonAnalysis = result.comparison_analysis;
+    const audioFiles = result.audio_files;
+
+    // Hiển thị 2 file audio để người dùng có thể nghe so sánh
+    this.displayAudioComparisonPlayer(audioFiles);
+
+    // Hiển thị metrics so sánh
+    this.displayComparisonMetrics(comparisonAnalysis);
+
+    // Hiển thị giải thích kỹ thuật chi tiết
+    this.displayTechnicalExplanation(comparisonAnalysis.technical_explanation);
+
+    // Hiển thị biểu đồ so sánh
+    if (comparisonAnalysis.comparison_chart_path) {
+      this.displayAdvancedComparisonChart(
+        comparisonAnalysis.comparison_chart_path
+      );
+    }
+
+    document.getElementById("noiseAnalysis").style.display = "block";
+  }
+
+  displayAudioComparisonPlayer(audioFiles) {
+    const container =
+      document.getElementById("audioComparisonPlayer") ||
+      this.createAudioComparisonContainer();
+
+    container.innerHTML = `
+      <div class="row">
+        <div class="col-md-6">
+          <div class="card">
+            <div class="card-header bg-danger text-white">
+              <h6 class="mb-0">🔊 Audio Gốc (Có Nhiễu)</h6>
+            </div>
+            <div class="card-body">
+              <audio controls class="w-100" preload="metadata">
+                <source src="/api/audio/download/${audioFiles.original}" type="audio/wav">
+                Trình duyệt không hỗ trợ audio player
+              </audio>
+              <small class="text-muted d-block mt-2">
+                File: ${audioFiles.original}<br>
+                Đây là sample âm thanh gốc chưa được xử lý noise reduction
+              </small>
+            </div>
+          </div>
+        </div>
+        <div class="col-md-6">
+          <div class="card">
+            <div class="card-header bg-success text-white">
+              <h6 class="mb-0">🎵 Audio Đã Xử Lý (Giảm Nhiễu)</h6>
+            </div>
+            <div class="card-body">
+              <audio controls class="w-100" preload="metadata">
+                <source src="/api/audio/download/${audioFiles.processed}" type="audio/wav">
+                Trình duyệt không hỗ trợ audio player
+              </audio>
+              <small class="text-muted d-block mt-2">
+                File: ${audioFiles.processed}<br>
+                Sample đã được xử lý bằng thuật toán noise reduction
+              </small>
+            </div>
+          </div>
+        </div>
+      </div>
+      <div class="alert alert-info mt-3">
+        <strong>💡 Hướng dẫn:</strong> Hãy nghe cả 2 file để cảm nhận sự khác biệt bằng tai. 
+        Audio bên trái là gốc (có nhiễu), audio bên phải đã được xử lý giảm nhiễu.
+      </div>
+    `;
+  }
+
+  displayComparisonMetrics(analysis) {
+    const container =
+      document.getElementById("comparisonMetrics") ||
+      this.createComparisonMetricsContainer();
+
+    const original = analysis.original_metrics;
+    const processed = analysis.processed_metrics;
+    const comparison = analysis.comparison_metrics;
+
+    container.innerHTML = `
+      <div class="row">
+        <div class="col-md-4">
+          <div class="card border-danger">
+            <div class="card-header bg-danger text-white">
+              <h6 class="mb-0">📊 Audio Gốc</h6>
+            </div>
+            <div class="card-body">
+              <div class="metric-item">
+                <strong>SNR:</strong> ${original.snr_estimate.toFixed(1)} dB
+              </div>
+              <div class="metric-item">
+                <strong>RMS Level:</strong> ${original.rms_level.toFixed(4)}
+              </div>
+              <div class="metric-item">
+                <strong>Dynamic Range:</strong> ${original.dynamic_range.toFixed(
+                  1
+                )} dB
+              </div>
+              <div class="metric-item">
+                <strong>Noise Floor:</strong> ${original.noise_floor.toFixed(4)}
+              </div>
+            </div>
+          </div>
+        </div>
+        <div class="col-md-4">
+          <div class="card border-success">
+            <div class="card-header bg-success text-white">
+              <h6 class="mb-0">📈 Audio Đã Xử Lý</h6>
+            </div>
+            <div class="card-body">
+              <div class="metric-item">
+                <strong>SNR:</strong> ${processed.snr_estimate.toFixed(1)} dB
+              </div>
+              <div class="metric-item">
+                <strong>RMS Level:</strong> ${processed.rms_level.toFixed(4)}
+              </div>
+              <div class="metric-item">
+                <strong>Dynamic Range:</strong> ${processed.dynamic_range.toFixed(
+                  1
+                )} dB
+              </div>
+              <div class="metric-item">
+                <strong>Noise Floor:</strong> ${processed.noise_floor.toFixed(
+                  4
+                )}
+              </div>
+            </div>
+          </div>
+        </div>
+        <div class="col-md-4">
+          <div class="card border-primary">
+            <div class="card-header bg-primary text-white">
+              <h6 class="mb-0">🔄 Cải Thiện</h6>
+            </div>
+            <div class="card-body">
+              <div class="metric-item ${
+                comparison.snr_improvement_db > 0
+                  ? "text-success"
+                  : "text-warning"
+              }">
+                <strong>SNR Cải Thiện:</strong> ${
+                  comparison.snr_improvement_db > 0 ? "+" : ""
+                }${comparison.snr_improvement_db.toFixed(1)} dB
+              </div>
+              <div class="metric-item ${
+                comparison.rms_reduction_percent > 0
+                  ? "text-success"
+                  : "text-warning"
+              }">
+                <strong>RMS Giảm:</strong> ${comparison.rms_reduction_percent.toFixed(
+                  1
+                )}%
+              </div>
+              <div class="metric-item">
+                <strong>Noise Floor Giảm:</strong> ${comparison.noise_floor_reduction.toFixed(
+                  4
+                )}
+              </div>
+              <div class="metric-item">
+                <strong>Dynamic Range:</strong> ${
+                  comparison.dynamic_range_change > 0 ? "+" : ""
+                }${comparison.dynamic_range_change.toFixed(1)} dB
+              </div>
+            </div>
+          </div>
+        </div>
+      </div>
+    `;
+  }
+
+  displayTechnicalExplanation(technicalExplanation) {
+    const container =
+      document.getElementById("technicalExplanation") ||
+      this.createTechnicalExplanationContainer();
+
+    const method = technicalExplanation.method_description;
+    const steps = technicalExplanation.processing_steps;
+    const params = technicalExplanation.parameter_explanation;
+    const results = technicalExplanation.results_interpretation;
+
+    container.innerHTML = `
+      <div class="accordion" id="technicalAccordion">
+        <div class="accordion-item">
+          <h2 class="accordion-header">
+            <button class="accordion-button" type="button" data-bs-toggle="collapse" data-bs-target="#methodCollapse">
+              🔬 Phương Pháp Sử Dụng: ${method.name}
+            </button>
+          </h2>
+          <div id="methodCollapse" class="accordion-collapse collapse show">
+            <div class="accordion-body">
+              <p><strong>Mô tả:</strong> ${method.description}</p>
+              <p><strong>Ưu điểm:</strong> ${method.advantages}</p>
+              <p><strong>Phù hợp cho:</strong> ${method.suitable_for}</p>
+            </div>
+          </div>
+        </div>
+        
+        <div class="accordion-item">
+          <h2 class="accordion-header">
+            <button class="accordion-button collapsed" type="button" data-bs-toggle="collapse" data-bs-target="#stepsCollapse">
+              ⚙️ Các Bước Xử Lý (${steps.length} bước)
+            </button>
+          </h2>
+          <div id="stepsCollapse" class="accordion-collapse collapse">
+            <div class="accordion-body">
+              <ol class="list-group list-group-numbered">
+                ${steps
+                  .map((step) => `<li class="list-group-item">${step}</li>`)
+                  .join("")}
+              </ol>
+            </div>
+          </div>
+        </div>
+        
+        <div class="accordion-item">
+          <h2 class="accordion-header">
+            <button class="accordion-button collapsed" type="button" data-bs-toggle="collapse" data-bs-target="#paramsCollapse">
+              📋 Parameters & Cấu Hình
+            </button>
+          </h2>
+          <div id="paramsCollapse" class="accordion-collapse collapse">
+            <div class="accordion-body">
+              ${Object.entries(params)
+                .map(
+                  ([key, value]) =>
+                    `<div class="mb-2"><strong>${key}:</strong> ${value}</div>`
+                )
+                .join("")}
+            </div>
+          </div>
+        </div>
+        
+        <div class="accordion-item">
+          <h2 class="accordion-header">
+            <button class="accordion-button collapsed" type="button" data-bs-toggle="collapse" data-bs-target="#resultsCollapse">
+              📊 Đánh Giá Kết Quả - ${results.quality_assessment}
+            </button>
+          </h2>
+          <div id="resultsCollapse" class="accordion-collapse collapse">
+            <div class="accordion-body">
+              <div class="alert alert-${
+                results.quality_assessment === "Excellent"
+                  ? "success"
+                  : results.quality_assessment === "Good"
+                  ? "info"
+                  : "warning"
+              }">
+                <strong>Chất lượng:</strong> ${results.quality_assessment}
+              </div>
+              <p><strong>SNR:</strong> ${results.snr_explanation}</p>
+              <p><strong>RMS:</strong> ${results.rms_explanation}</p>
+              <div class="alert alert-info">
+                <strong>💡 Khuyến nghị:</strong> ${results.recommendation}
+              </div>
+            </div>
+          </div>
+        </div>
+      </div>
+    `;
+  }
+
+  displayAdvancedComparisonChart(chartPath) {
+    const container =
+      document.getElementById("advancedComparisonChart") ||
+      this.createAdvancedChartContainer();
+
+    container.innerHTML = `
+      <div class="card">
+        <div class="card-header">
+          <h6 class="mb-0">📈 Biểu Đồ Phân Tích Chi Tiết</h6>
+        </div>
+        <div class="card-body">
+          <img src="/static/results/${chartPath}?${new Date().getTime()}" 
+               class="img-fluid w-100" 
+               alt="Noise Reduction Detailed Analysis"
+               style="max-height: 800px; object-fit: contain;">
+          <div class="mt-3">
+            <small class="text-muted">
+              <strong>Giải thích biểu đồ:</strong><br>
+              • <strong>Waveform:</strong> So sánh dạng sóng âm thanh trước và sau xử lý<br>
+              • <strong>Spectrogram:</strong> Phân tích tần số theo thời gian (màu càng sáng = cường độ càng cao)<br>
+              • <strong>Metrics:</strong> So sánh các chỉ số kỹ thuật<br>
+              • <strong>Processing Details:</strong> Thông tin chi tiết về quá trình xử lý và sample được lấy từ đâu
+            </small>
+          </div>
+        </div>
+      </div>
+    `;
+  }
+
+  createAudioComparisonContainer() {
+    const container = document.createElement("div");
+    container.id = "audioComparisonPlayer";
+    container.className = "mt-4";
+
+    const noiseAnalysis = document.getElementById("noiseAnalysis");
+    noiseAnalysis.appendChild(container);
+
+    return container;
+  }
+
+  createComparisonMetricsContainer() {
+    const container = document.createElement("div");
+    container.id = "comparisonMetrics";
+    container.className = "mt-4";
+
+    const noiseAnalysis = document.getElementById("noiseAnalysis");
+    noiseAnalysis.appendChild(container);
+
+    return container;
+  }
+
+  createTechnicalExplanationContainer() {
+    const container = document.createElement("div");
+    container.id = "technicalExplanation";
+    container.className = "mt-4";
+
+    const noiseAnalysis = document.getElementById("noiseAnalysis");
+    noiseAnalysis.appendChild(container);
+
+    return container;
+  }
+
+  createAdvancedChartContainer() {
+    const container = document.createElement("div");
+    container.id = "advancedComparisonChart";
+    container.className = "mt-4";
+
+    const noiseAnalysis = document.getElementById("noiseAnalysis");
+    noiseAnalysis.appendChild(container);
+
+    return container;
   }
 
   displayNoiseResults(result) {
@@ -712,45 +1074,117 @@ class AdvancedAudioApp {
       confidenceText.textContent = confidenceValue.toFixed(1) + "%";
     }
 
-    // Show audio features analysis
-    if (result.audio_features) {
-      this.displayAudioFeatures(result.audio_features);
+    // Hiển thị giải thích confidence
+    if (
+      result.additional_info &&
+      result.additional_info.confidence_explanation
+    ) {
+      const confidenceExplain = document.getElementById("confidenceExplain");
+      if (confidenceExplain) {
+        confidenceExplain.innerHTML = `<div class='alert alert-info mt-2'><strong>Giải thích độ tin cậy:</strong> ${result.additional_info.confidence_explanation}</div>`;
+      }
     }
 
-    // Show classification reasoning
-    if (result.classification_reasoning) {
-      this.displayClassificationReasoning(result.classification_reasoning);
+    // Hiển thị bảng báo cáo chi tiết
+    if (result.additional_info && result.additional_info.detailed_report) {
+      this.displayGenreDetailedReport(result.additional_info.detailed_report);
     }
 
     document.getElementById("genreResults").style.display = "block";
+  }
 
-    // NO complex probability tables - just simple result as per đề bài requirements
+  displayGenreDetailedReport(report) {
+    const container = document.getElementById("genreDetailedReport");
+    if (!container) return;
+    let html = "";
+    for (const [section, content] of Object.entries(report)) {
+      html += `<div class='card mb-3'><div class='card-header bg-primary text-white'><strong>${section}</strong></div><div class='card-body'>`;
+      if (typeof content === "object" && !Array.isArray(content)) {
+        html += `<table class='table table-bordered table-sm'>`;
+        for (const [key, value] of Object.entries(content)) {
+          html += `<tr><td><strong>${key}</strong></td><td>${
+            typeof value === "object" ? JSON.stringify(value) : value
+          }</td></tr>`;
+        }
+        html += `</table>`;
+      } else if (Array.isArray(content)) {
+        html += `<ol class='list-group list-group-numbered'>`;
+        for (const step of content) {
+          html += `<li class='list-group-item'>${step}</li>`;
+        }
+        html += `</ol>`;
+      } else {
+        html += `<div>${content}</div>`;
+      }
+      html += `</div></div>`;
+    }
+    container.innerHTML = html;
   }
 
   displayAudioFeatures(features) {
     const featuresHtml = `
             <div class="alert alert-info mt-3">
-                <h6><i class="fas fa-chart-line"></i> Phân Tích Đặc Trưng Âm Thanh</h6>
+                <h6><i class="fas fa-chart-line"></i> Phân Tích Đặc Trưng Âm Thanh Chi Tiết</h6>
                 <div class="row">
-                    <div class="col-md-6">
-                        <p><strong>🎵 Spectral Centroid:</strong> ${features.spectral_centroid.toFixed(
+                    <div class="col-md-4">
+                        <h6>🎵 Đặc trưng Spectral</h6>
+                        <p><strong>Spectral Centroid:</strong> ${features.spectral_centroid.toFixed(
                           0
                         )} Hz</p>
-                        <p><strong>📊 Spectral Rolloff:</strong> ${features.spectral_rolloff.toFixed(
+                        <p><strong>Spectral Rolloff:</strong> ${features.spectral_rolloff.toFixed(
                           0
                         )} Hz</p>
-                        <p><strong>🥁 Tempo:</strong> ${features.tempo.toFixed(
-                          0
-                        )} BPM</p>
-                    </div>
-                    <div class="col-md-6">
-                        <p><strong>⚡ Zero Crossing Rate:</strong> ${features.zero_crossing_rate.toFixed(
+                        <p><strong>RMS Energy:</strong> ${features.rms_energy.toFixed(
                           3
                         )}</p>
-                        <p><strong>🎼 Harmonic Ratio:</strong> ${features.harmonic_ratio.toFixed(
+                    </div>
+                    <div class="col-md-4">
+                        <h6>🎼 Đặc trưng Rhythm & Harmonic</h6>
+                        <p><strong>Tempo:</strong> ${features.tempo.toFixed(
+                          0
+                        )} BPM</p>
+                        <p><strong>Zero Crossing Rate:</strong> ${features.zero_crossing_rate.toFixed(
+                          3
+                        )}</p>
+                        <p><strong>Harmonic Ratio:</strong> ${features.harmonic_ratio.toFixed(
                           2
                         )}</p>
                     </div>
+                    <div class="col-md-4">
+                        <h6>🎹 Đặc trưng MFCC & Chroma</h6>
+                        ${
+                          features.mfcc_characteristics
+                            ? `
+                            <p><strong>Timbre Brightness:</strong> ${features.mfcc_characteristics.timbre_brightness.toFixed(
+                              2
+                            )}</p>
+                            <p><strong>Spectral Shape:</strong> ${features.mfcc_characteristics.spectral_shape.toFixed(
+                              2
+                            )}</p>
+                        `
+                            : ""
+                        }
+                        ${
+                          features.chroma_characteristics
+                            ? `
+                            <p><strong>Dominant Pitch:</strong> ${this.getPitchClassName(
+                              features.chroma_characteristics
+                                .dominant_pitch_class
+                            )}</p>
+                            <p><strong>Harmonic Complexity:</strong> ${features.chroma_characteristics.harmonic_complexity.toFixed(
+                              2
+                            )}</p>
+                        `
+                            : ""
+                        }
+                    </div>
+                </div>
+                <div class="mt-2">
+                    <small class="text-muted">
+                        💡 <strong>Giải thích:</strong> Spectral Centroid là "trung tâm khối lượng" của frequency spectrum. 
+                        Tempo là nhịp độ (beats per minute). Zero Crossing Rate phản ánh độ "gồ ghề" của âm thanh.
+                        Harmonic Ratio cho biết tỷ lệ âm hài hòa so với percussion.
+                    </small>
                 </div>
             </div>
         `;
@@ -768,6 +1202,24 @@ class AdvancedAudioApp {
     featuresDiv.className = "audio-features";
     featuresDiv.innerHTML = featuresHtml;
     resultsDiv.appendChild(featuresDiv);
+  }
+
+  getPitchClassName(pitchClass) {
+    const pitchNames = [
+      "C",
+      "C#",
+      "D",
+      "D#",
+      "E",
+      "F",
+      "F#",
+      "G",
+      "G#",
+      "A",
+      "A#",
+      "B",
+    ];
+    return pitchNames[pitchClass] || "Unknown";
   }
 
   displayClassificationReasoning(reasoning) {
@@ -797,6 +1249,229 @@ class AdvancedAudioApp {
     reasoningDiv.className = "classification-reasoning";
     reasoningDiv.innerHTML = reasoningHtml;
     resultsDiv.appendChild(reasoningDiv);
+  }
+
+  displayMLAnalysis(mlAnalysis) {
+    if (!mlAnalysis) return;
+
+    const analysisHtml = `
+            <div class="alert alert-primary mt-3">
+                <h6><i class="fas fa-robot"></i> Phân Tích Machine Learning Chi Tiết</h6>
+                <div class="row">
+                    <div class="col-md-6">
+                        <p><strong>🔬 Tổng số features:</strong> ${
+                          mlAnalysis.total_features_extracted
+                        }</p>
+                        <p><strong>📊 Độ tin cậy model:</strong> ${(
+                          mlAnalysis.model_confidence * 100
+                        ).toFixed(1)}%</p>
+                        <p><strong>🧠 Loại features:</strong></p>
+                        <ul class="small">
+                            ${mlAnalysis.feature_types
+                              .map((type) => `<li>${type}</li>`)
+                              .join("")}
+                        </ul>
+                    </div>
+                    <div class="col-md-6">
+                        <p><strong>🏆 Top 3 dự đoán:</strong></p>
+                        <ol class="small">
+                            ${mlAnalysis.top_3_predictions
+                              .map(
+                                ([genre, prob]) =>
+                                  `<li>${genre}: ${(prob * 100).toFixed(
+                                    1
+                                  )}%</li>`
+                              )
+                              .join("")}
+                        </ol>
+                    </div>
+                </div>
+            </div>
+        `;
+
+    // Insert after genre results
+    const resultsDiv = document.getElementById("genreResults");
+
+    // Remove existing ML analysis div if present
+    const existingAnalysis = resultsDiv.querySelector(".ml-analysis");
+    if (existingAnalysis) {
+      existingAnalysis.remove();
+    }
+
+    const analysisDiv = document.createElement("div");
+    analysisDiv.className = "ml-analysis";
+    analysisDiv.innerHTML = analysisHtml;
+    resultsDiv.appendChild(analysisDiv);
+  }
+
+  displayDatasetInfo(datasetInfo) {
+    if (!datasetInfo) return;
+
+    const datasetHtml = `
+            <div class="alert alert-warning mt-3">
+                <h6><i class="fas fa-database"></i> Chi Tiết Dataset Training</h6>
+                <div class="row">
+                    <div class="col-md-6">
+                        <p><strong>📂 Dataset:</strong> ${datasetInfo.name}</p>
+                        <p><strong>🎵 Tổng samples:</strong> ${
+                          datasetInfo.total_samples
+                        } bài nhạc</p>
+                        <p><strong>⚖️ Phân bố:</strong> ${
+                          datasetInfo.samples_per_genre
+                        } bài/genre</p>
+                        <p><strong>⏱️ Độ dài:</strong> ${
+                          datasetInfo.audio_length
+                        }</p>
+                        <p><strong>🤖 Algorithm:</strong> ${
+                          datasetInfo.training_method
+                        }</p>
+                    </div>
+                    <div class="col-md-6">
+                        <p><strong>🎯 Accuracy:</strong> ${
+                          datasetInfo.average_accuracy
+                        }</p>
+                        <p><strong>✅ Validation:</strong> ${
+                          datasetInfo.cross_validation
+                        }</p>
+                        <p><strong>🏷️ Genres support:</strong></p>
+                        <div class="d-flex flex-wrap gap-1">
+                            ${datasetInfo.genres
+                              .map(
+                                (genre) =>
+                                  `<span class="badge bg-secondary">${genre}</span>`
+                              )
+                              .join("")}
+                        </div>
+                    </div>
+                </div>
+                
+                <div class="mt-3">
+                    <h6><strong>🔍 Đặc Trưng Quan Trọng Nhất:</strong></h6>
+                    <ul class="small">
+                        ${datasetInfo.feature_importance.most_important_features
+                          .map((feature) => `<li>${feature}</li>`)
+                          .join("")}
+                    </ul>
+                </div>
+
+                <div class="mt-3">
+                    <h6><strong>🎼 Chữ Ký Âm Nhạc Của Từng Genre:</strong></h6>
+                    <div class="accordion" id="genreSignatures">
+                        ${Object.entries(
+                          datasetInfo.feature_importance.genre_signatures
+                        )
+                          .map(
+                            ([genre, signature], index) => `
+                            <div class="accordion-item">
+                                <h2 class="accordion-header" id="heading${index}">
+                                    <button class="accordion-button collapsed" type="button" data-bs-toggle="collapse" 
+                                            data-bs-target="#collapse${index}" aria-expanded="false">
+                                        <strong>${genre.toUpperCase()}</strong>
+                                    </button>
+                                </h2>
+                                <div id="collapse${index}" class="accordion-collapse collapse" 
+                                     data-bs-parent="#genreSignatures">
+                                    <div class="accordion-body small">
+                                        ${signature}
+                                    </div>
+                                </div>
+                            </div>
+                        `
+                          )
+                          .join("")}
+                    </div>
+                </div>
+
+                <div class="mt-3">
+                    <h6><strong>💡 Training Insights:</strong></h6>
+                    <ul class="small">
+                        ${datasetInfo.feature_importance.training_insights
+                          .map((insight) => `<li>${insight}</li>`)
+                          .join("")}
+                    </ul>
+                </div>
+            </div>
+        `;
+
+    const resultsDiv = document.getElementById("genreResults");
+    const existingDataset = resultsDiv.querySelector(".dataset-info");
+    if (existingDataset) {
+      existingDataset.remove();
+    }
+
+    const datasetDiv = document.createElement("div");
+    datasetDiv.className = "dataset-info";
+    datasetDiv.innerHTML = datasetHtml;
+    resultsDiv.appendChild(datasetDiv);
+  }
+
+  displayTechnicalDetails(technicalDetails) {
+    if (!technicalDetails) return;
+
+    const technicalHtml = `
+            <div class="alert alert-dark mt-3">
+                <h6><i class="fas fa-cogs"></i> Chi Tiết Kỹ Thuật ML Pipeline</h6>
+                
+                <div class="row">
+                    <div class="col-md-4">
+                        <h6><strong>🔧 Preprocessing:</strong></h6>
+                        <ul class="small">
+                            ${technicalDetails.preprocessing
+                              .map((step) => `<li>${step}</li>`)
+                              .join("")}
+                        </ul>
+                    </div>
+                    <div class="col-md-4">
+                        <h6><strong>📊 Feature Extraction:</strong></h6>
+                        <ul class="small">
+                            ${technicalDetails.feature_extraction
+                              .map((feature) => `<li>${feature}</li>`)
+                              .join("")}
+                        </ul>
+                    </div>
+                    <div class="col-md-4">
+                        <h6><strong>🤖 Model Details:</strong></h6>
+                        <ul class="small">
+                            <li><strong>Algorithm:</strong> ${
+                              technicalDetails.model_details.algorithm
+                            }</li>
+                            <li><strong>Trees:</strong> ${
+                              technicalDetails.model_details.n_estimators
+                            }</li>
+                            <li><strong>Max Depth:</strong> ${
+                              technicalDetails.model_details.max_depth ||
+                              "Unlimited"
+                            }</li>
+                            <li><strong>Scaling:</strong> ${
+                              technicalDetails.model_details.feature_scaling
+                            }</li>
+                            <li><strong>Prediction:</strong> ${
+                              technicalDetails.model_details.prediction_method
+                            }</li>
+                        </ul>
+                    </div>
+                </div>
+                
+                <div class="alert alert-info mt-3">
+                    <small>
+                        <strong>🧠 Giải thích:</strong> Random Forest sử dụng 100 decision trees, mỗi tree 
+                        vote cho 1 genre. Genre có nhiều vote nhất sẽ được chọn. Feature scaling đảm bảo 
+                        tất cả features có cùng tầm quan trọng trong quá trình training.
+                    </small>
+                </div>
+            </div>
+        `;
+
+    const resultsDiv = document.getElementById("genreResults");
+    const existingTechnical = resultsDiv.querySelector(".technical-details");
+    if (existingTechnical) {
+      existingTechnical.remove();
+    }
+
+    const technicalDiv = document.createElement("div");
+    technicalDiv.className = "technical-details";
+    technicalDiv.innerHTML = technicalHtml;
+    resultsDiv.appendChild(technicalDiv);
   }
 
   displayProbabilityTable(probabilities) {
@@ -1013,13 +1688,13 @@ class AdvancedAudioApp {
       this.stopRealtimeProcessing();
     });
 
-    // Recording control
+    // Recording controls trong tab Real-time
     document.getElementById("startRecording").addEventListener("click", () => {
-      this.startRecording();
+      this.startRealtimeRecording();
     });
 
     document.getElementById("stopRecording").addEventListener("click", () => {
-      this.stopRecording();
+      this.stopRealtimeRecording();
     });
 
     // Initialize audio visualizer
@@ -1529,16 +2204,139 @@ class AdvancedAudioApp {
     this.showSuccess("Latency test feature coming soon!");
   }
 
-  startRecording() {
-    this.showSuccess("Recording feature coming soon!");
-  }
-
-  stopRecording() {
-    this.showSuccess("Stop recording feature coming soon!");
-  }
-
   compareNoiseReduction() {
     this.showSuccess("Noise comparison feature coming soon!");
+  }
+
+  // Real-time Recording Functions
+  async startRealtimeRecording() {
+    try {
+      // Đảm bảo real-time processing đang chạy
+      if (!this.isRealtimeActive) {
+        this.showError("Please start Real-time Processing first!");
+        return;
+      }
+
+      const duration = document.getElementById("recordDuration").value;
+      const filename = `realtime_record_${Date.now()}.wav`;
+
+      this.showInfo("🎙️ Starting real-time recording...");
+
+      const response = await fetch("/api/realtime/start_recording", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          filename: filename,
+          duration: duration ? parseFloat(duration) : null,
+        }),
+      });
+
+      const result = await response.json();
+
+      if (result.success) {
+        this.showSuccess(`✓ Recording started: ${filename}`);
+
+        // Update UI
+        document.getElementById("startRecording").disabled = true;
+        document.getElementById("stopRecording").disabled = false;
+
+        // Auto-stop after duration if specified
+        if (duration) {
+          setTimeout(() => {
+            this.stopRealtimeRecording();
+          }, parseFloat(duration) * 1000);
+        }
+      } else {
+        throw new Error(result.error || "Recording failed");
+      }
+    } catch (error) {
+      this.showError("Recording failed: " + error.message);
+    }
+  }
+
+  async stopRealtimeRecording() {
+    try {
+      this.showInfo("⏹️ Stopping recording...");
+
+      const response = await fetch("/api/realtime/stop_recording", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+      });
+
+      const result = await response.json();
+
+      if (result.success) {
+        this.showSuccess(`✓ Recording saved: ${result.filename}`);
+        this.showSuccess(`📊 Duration: ${result.duration.toFixed(2)}s`);
+
+        // Update UI
+        document.getElementById("startRecording").disabled = false;
+        document.getElementById("stopRecording").disabled = true;
+
+        // Hiển thị thông tin file đã ghi
+        this.displayRecordingResult(result);
+      } else {
+        throw new Error(result.error || "Stop recording failed");
+      }
+    } catch (error) {
+      this.showError("Stop recording failed: " + error.message);
+
+      // Reset UI on error
+      document.getElementById("startRecording").disabled = false;
+      document.getElementById("stopRecording").disabled = true;
+    }
+  }
+
+  displayRecordingResult(result) {
+    // Tạo thông báo thành công với link download
+    const alertDiv = document.createElement("div");
+    alertDiv.className = "alert alert-success alert-dismissible fade show mt-3";
+    alertDiv.innerHTML = `
+      <h6><i class="fas fa-check-circle"></i> Recording Complete!</h6>
+      <p class="mb-2">
+        <strong>File:</strong> ${result.filename}<br>
+        <strong>Duration:</strong> ${result.duration.toFixed(2)} seconds<br>
+        <strong>Size:</strong> ${result.file_size || "N/A"}
+      </p>
+      <div class="d-flex gap-2">
+        <a href="/api/audio/download/${
+          result.filename
+        }" class="btn btn-sm btn-primary">
+          <i class="fas fa-download"></i> Download
+        </a>
+        <button class="btn btn-sm btn-info" onclick="app.loadRecordedFileToUpload('${
+          result.filename
+        }')">
+          <i class="fas fa-upload"></i> Load to Upload Tab
+        </button>
+      </div>
+      <button type="button" class="btn-close" data-bs-dismiss="alert"></button>
+    `;
+
+    // Thêm vào tab Real-time
+    const realtimeTab = document.getElementById("realtime");
+    const moduleCard = realtimeTab.querySelector(".module-card");
+    moduleCard.appendChild(alertDiv);
+
+    // Auto-remove after 10 seconds
+    setTimeout(() => {
+      if (alertDiv.parentNode) {
+        alertDiv.remove();
+      }
+    }, 10000);
+  }
+
+  loadRecordedFileToUpload(filename) {
+    // Switch to upload tab and simulate file loading
+    const uploadTab = document.querySelector('[data-bs-target="#upload"]');
+    uploadTab.click();
+
+    // Simulate file info
+    this.currentFile = { name: filename };
+    document.getElementById("fileName").textContent = filename;
+    document.getElementById("fileInfo").style.display = "block";
+
+    this.showSuccess(`✓ File ${filename} loaded to Upload tab!`);
   }
 
   async exportResults() {

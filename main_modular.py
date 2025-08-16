@@ -179,7 +179,7 @@ class MainApplication:
         
         @self.app.route('/api/noise_reduction/process', methods=['POST'])
         def process_noise_reduction():
-            """Process audio with noise reduction"""
+            """Process audio with noise reduction and create detailed comparison"""
             try:
                 if self.current_audio is None:
                     return jsonify({'error': 'No audio file loaded'}), 400
@@ -193,39 +193,37 @@ class MainApplication:
                     self.current_audio, method, reduction_level
                 )
                 
-                # Save processed audio
-                output_path = os.path.join(
-                    self.app.config['UPLOAD_FOLDER'], 
-                    'processed_nr.wav'
-                )
-                sf.write(output_path, processed_audio, self.sample_rate)
+                # Save both original and processed audio files
+                timestamp = int(time.time())
+                original_filename = f'original_audio_{timestamp}.wav'
+                processed_filename = f'processed_nr_{method}_{timestamp}.wav'
                 
-                # Analyze noise characteristics
-                noise_analysis = self.noise_reduction_engine.analyze_noise_characteristics(
-                    self.current_audio
-                )
-                processed_analysis = self.noise_reduction_engine.analyze_noise_characteristics(
-                    processed_audio
+                original_path = os.path.join(self.app.config['UPLOAD_FOLDER'], original_filename)
+                processed_path = os.path.join(self.app.config['UPLOAD_FOLDER'], processed_filename)
+                
+                # Save audio files
+                sf.write(original_path, self.current_audio, self.sample_rate)
+                sf.write(processed_path, processed_audio, self.sample_rate)
+                
+                # Create detailed comparison analysis
+                comparison_analysis = self.noise_reduction_engine.create_comparison_analysis(
+                    self.current_audio, processed_audio, method, reduction_level
                 )
                 
-                # Generate before/after spectrograms
-                plot_path = self._plot_noise_reduction_comparison(
-                    self.current_audio, processed_audio
-                )
+                # Add file paths to analysis
+                comparison_analysis['audio_files'] = {
+                    'original': original_filename,
+                    'processed': processed_filename,
+                    'original_path': original_path,
+                    'processed_path': processed_path
+                }
                 
                 return jsonify({
                     'success': True,
-                    'output_path': output_path,
+                    'comparison_analysis': comparison_analysis,
+                    'audio_files': comparison_analysis['audio_files'],
                     'method': method,
-                    'reduction_level': reduction_level,
-                    'original_analysis': noise_analysis,
-                    'processed_analysis': processed_analysis,
-                    'snr_improvement': float(
-                        processed_analysis.get('snr_estimate', 0) - 
-                        noise_analysis.get('snr_estimate', 0)
-                    ),
-                    'plot_path': plot_path,
-                    'comparison_plot': plot_path is not None
+                    'reduction_level': reduction_level
                 })
                 
             except Exception as e:
@@ -279,7 +277,7 @@ class MainApplication:
                 
                 if option == 'option1':
                     # Use Advanced Librosa/Musicnn method
-                    result = self.genre_classification_engine.advanced_classifier.option1_musicnn_classify(self.current_file_path)
+                    result = self.genre_classification_engine.advanced_classifier.option1_librosa_classify(self.current_file_path)
                     return jsonify({
                         'success': True,
                         'predicted_genre': result.get('predicted_genre', 'unknown'),
@@ -300,7 +298,7 @@ class MainApplication:
                 elif option == 'both':
                     # Run both methods and compare
                     try:
-                        result1 = self.genre_classification_engine.advanced_classifier.option1_musicnn_classify(self.current_file_path)
+                        result1 = self.genre_classification_engine.advanced_classifier.option1_librosa_classify(self.current_file_path)
                         result2 = self.genre_classification_engine.advanced_classifier.option2_custom_ml_classify(self.current_file_path)
                         
                         # Choose the result with higher confidence
@@ -399,6 +397,70 @@ class MainApplication:
             except Exception as e:
                 return jsonify({'error': str(e)}), 500
         
+        @self.app.route('/api/realtime/start_recording', methods=['POST'])
+        def start_recording():
+            """Start recording processed audio"""
+            try:
+                data = request.get_json()
+                filename = data.get('filename', f'recorded_{int(time.time())}.wav')
+                duration = data.get('duration')  # None for continuous
+                
+                # Ensure uploads directory exists
+                os.makedirs('uploads', exist_ok=True)
+                filepath = os.path.join('uploads', filename)
+                
+                success = self.realtime_engine.start_recording_to_file(filepath, duration)
+                
+                if success:
+                    return jsonify({
+                        'success': True,
+                        'message': 'Recording started',
+                        'filename': filename,
+                        'filepath': filepath,
+                        'duration': duration
+                    })
+                else:
+                    return jsonify({
+                        'success': False,
+                        'message': 'Failed to start recording'
+                    }), 400
+                    
+            except Exception as e:
+                return jsonify({
+                    'success': False,
+                    'message': str(e)
+                }), 500
+        
+        @self.app.route('/api/realtime/stop_recording', methods=['POST'])
+        def stop_recording():
+            """Stop recording and save file"""
+            try:
+                success = self.realtime_engine.stop_recording()
+                
+                if success:
+                    # Get recording info
+                    stats = self.realtime_engine.get_processing_stats()
+                    filename = getattr(self.realtime_engine, 'recording_filename', 'unknown.wav')
+                    
+                    return jsonify({
+                        'success': True,
+                        'message': 'Recording saved',
+                        'filename': os.path.basename(filename),
+                        'filepath': filename,
+                        'duration': getattr(self.realtime_engine, 'recording_duration', 0)
+                    })
+                else:
+                    return jsonify({
+                        'success': False,
+                        'message': 'No recording in progress or failed to save'
+                    }), 400
+                    
+            except Exception as e:
+                return jsonify({
+                    'success': False,
+                    'message': str(e)
+                }), 500
+        
         @self.app.route('/api/audio_devices', methods=['GET'])
         def get_audio_devices():
             """Get available audio devices"""
@@ -434,6 +496,18 @@ class MainApplication:
                 methods = self.noise_reduction_engine.get_available_methods()
                 return jsonify({'methods': methods})
                 
+            except Exception as e:
+                return jsonify({'error': str(e)}), 500
+        
+        @self.app.route('/api/audio/download/<filename>')
+        def download_audio_file(filename):
+            """Download audio file from uploads folder"""
+            try:
+                file_path = os.path.join(self.app.config['UPLOAD_FOLDER'], filename)
+                if os.path.exists(file_path):
+                    return send_file(file_path, as_attachment=True)
+                else:
+                    return jsonify({'error': 'File not found'}), 404
             except Exception as e:
                 return jsonify({'error': str(e)}), 500
         

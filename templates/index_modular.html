@@ -198,6 +198,32 @@
         margin: 10px 0;
       }
 
+      /* Noise Reduction Comparison Styles */
+      .metric-item {
+        padding: 8px 0;
+        border-bottom: 1px solid rgba(0, 0, 0, 0.1);
+        font-size: 0.95em;
+      }
+
+      .metric-item:last-child {
+        border-bottom: none;
+      }
+
+      .accordion-button {
+        font-weight: 600;
+        font-size: 0.95em;
+      }
+
+      .audio-comparison-player audio {
+        width: 100%;
+        margin: 10px 0;
+      }
+
+      .card-header h6 {
+        margin: 0;
+        font-weight: 600;
+      }
+
       .progress-bar {
         background: var(--primary-gradient);
       }
@@ -940,44 +966,68 @@
                 <div class="result-card">
                   <h5>
                     <i class="fas fa-check-circle"></i> ✅ Noise Reduction
-                    Complete
+                    Complete - Phân Tích Chi Tiết
                   </h5>
-                  <div class="row">
-                    <div class="col-md-6">
-                      <h4>
-                        📊 <strong>SNR Improvement:</strong>
-                        <span
-                          id="snrImprovement"
-                          class="text-success fs-4"
-                        ></span>
-                        dB
-                      </h4>
-                      <p>
-                        <strong>🔊 Original SNR:</strong>
-                        <span id="snrEstimate"></span> dB
-                      </p>
-                      <p>
-                        <strong>🎚️ Dynamic Range:</strong>
-                        <span id="dynamicRange"></span> dB
-                      </p>
-                    </div>
-                    <div class="col-md-6">
-                      <p>
-                        <strong>🧠 Method Used:</strong>
-                        <span
-                          id="methodUsedNoise"
-                          class="badge bg-primary"
-                        ></span>
-                      </p>
-                      <p>
-                        <strong>⚡ Processing:</strong>
-                        <span class="text-success">✅ Success</span>
-                      </p>
-                      <p>
-                        <strong>💾 Output File:</strong>
-                        <span class="text-info">processed_nr.wav</span>
-                      </p>
-                    </div>
+
+                  <!-- Note: Các container sau sẽ được tạo động bởi JavaScript:
+                       - audioComparisonPlayer: 2 audio player để nghe so sánh
+                       - comparisonMetrics: Bảng so sánh các metrics
+                       - technicalExplanation: Giải thích kỹ thuật với accordion
+                       - advancedComparisonChart: Biểu đồ phân tích chi tiết
+                  -->
+
+                  <div class="alert alert-success mt-3">
+                    <h6>
+                      <i class="fas fa-info-circle"></i> Thông tin Noise
+                      Reduction:
+                    </h6>
+                    <p class="mb-0">
+                      Dưới đây là kết quả phân tích chi tiết quá trình giảm
+                      nhiễu. Bạn có thể nghe so sánh 2 file audio, xem các chỉ
+                      số kỹ thuật, và hiểu rõ thuật toán đã được áp dụng như thế
+                      nào.
+                    </p>
+                  </div>
+                </div>
+              </div>
+
+              <!-- Legacy Simple Results (backup) -->
+              <div id="legacyNoiseResults" style="display: none">
+                <div class="row">
+                  <div class="col-md-6">
+                    <h4>
+                      📊 <strong>SNR Improvement:</strong>
+                      <span
+                        id="snrImprovement"
+                        class="text-success fs-4"
+                      ></span>
+                      dB
+                    </h4>
+                    <p>
+                      <strong>🔊 Original SNR:</strong>
+                      <span id="snrEstimate"></span> dB
+                    </p>
+                    <p>
+                      <strong>🎚️ Dynamic Range:</strong>
+                      <span id="dynamicRange"></span> dB
+                    </p>
+                  </div>
+                  <div class="col-md-6">
+                    <p>
+                      <strong>🧠 Method Used:</strong>
+                      <span
+                        id="methodUsedNoise"
+                        class="badge bg-primary"
+                      ></span>
+                    </p>
+                    <p>
+                      <strong>⚡ Processing:</strong>
+                      <span class="text-success">✅ Success</span>
+                    </p>
+                    <p>
+                      <strong>💾 Output File:</strong>
+                      <span class="text-info">processed_nr.wav</span>
+                    </p>
                   </div>
                 </div>
               </div>
@@ -1101,6 +1151,7 @@
                         ></span
                         >%
                       </p>
+                      <div id="confidenceExplain"></div>
                       <p>
                         <strong>🔧 Method:</strong>
                         <span id="methodUsed"></span>
@@ -1127,6 +1178,7 @@
                       </div>
                     </div>
                   </div>
+                  <div id="genreDetailedReport" class="mt-4"></div>
                 </div>
               </div>
 
