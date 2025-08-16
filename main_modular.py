@@ -211,13 +211,14 @@ class MainApplication:
                 )
                 
                 # Add file paths to analysis
+                if 'error' in comparison_analysis:
+                    return jsonify({'error': comparison_analysis['error']}), 400
                 comparison_analysis['audio_files'] = {
                     'original': original_filename,
                     'processed': processed_filename,
                     'original_path': original_path,
                     'processed_path': processed_path
                 }
-                
                 return jsonify({
                     'success': True,
                     'comparison_analysis': comparison_analysis,

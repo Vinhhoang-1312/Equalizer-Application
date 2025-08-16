@@ -341,8 +341,10 @@ class AdvancedAudioApp {
 
       if (result.success) {
         this.hideProcessingStatus();
+        const rmsChange = result.rms_change_db != null ? 
+          Number(result.rms_change_db).toFixed(2) : 'N/A';
         this.showSuccess(
-          `Equalizer applied! RMS change: ${result.rms_change_db.toFixed(2)} dB`
+          `Equalizer applied! RMS change: ${rmsChange} dB`
         );
       } else {
         throw new Error(result.error);
@@ -554,14 +556,34 @@ class AdvancedAudioApp {
     const comparisonAnalysis = result.comparison_analysis;
     const audioFiles = result.audio_files;
 
+    // Check if comparison_analysis exists and has required properties
+    if (!comparisonAnalysis) {
+      this.showError("Phân tích so sánh không thành công. Vui lòng thử lại.");
+      return;
+    }
+
+    // Validate that we have metrics data with fallback handling
+    const originalMetrics = comparisonAnalysis.original_metrics || {};
+    const processedMetrics = comparisonAnalysis.processed_metrics || {};
+    
+    // Check if analysis failed but we still have fallback data
+    if (originalMetrics.analysis_failed || processedMetrics.analysis_failed) {
+      console.warn("Audio analysis had issues but continuing with available data");
+      this.showWarning("Phân tích audio gặp một số vấn đề nhưng vẫn hiển thị kết quả có sẵn.");
+    }
+
     // Hiển thị 2 file audio để người dùng có thể nghe so sánh
-    this.displayAudioComparisonPlayer(audioFiles);
+    if (audioFiles) {
+      this.displayAudioComparisonPlayer(audioFiles);
+    }
 
     // Hiển thị metrics so sánh
     this.displayComparisonMetrics(comparisonAnalysis);
 
     // Hiển thị giải thích kỹ thuật chi tiết
-    this.displayTechnicalExplanation(comparisonAnalysis.technical_explanation);
+    if (comparisonAnalysis.technical_explanation) {
+      this.displayTechnicalExplanation(comparisonAnalysis.technical_explanation);
+    }
 
     // Hiển thị biểu đồ so sánh
     if (comparisonAnalysis.comparison_chart_path) {
@@ -627,9 +649,14 @@ class AdvancedAudioApp {
       document.getElementById("comparisonMetrics") ||
       this.createComparisonMetricsContainer();
 
-    const original = analysis.original_metrics;
-    const processed = analysis.processed_metrics;
-    const comparison = analysis.comparison_metrics;
+    const original = analysis.original_metrics || {};
+    const processed = analysis.processed_metrics || {};
+    const comparison = analysis.comparison_metrics || {};
+
+    // Helper function to safely get numeric values with fallbacks
+    const safeValue = (value, fallback = 0, decimals = 2) => {
+      return (value != null && !isNaN(value)) ? Number(value).toFixed(decimals) : fallback;
+    };
 
     container.innerHTML = `
       <div class="row">
@@ -640,18 +667,16 @@ class AdvancedAudioApp {
             </div>
             <div class="card-body">
               <div class="metric-item">
-                <strong>SNR:</strong> ${original.snr_estimate.toFixed(1)} dB
+                <strong>SNR:</strong> ${safeValue(original.snr_estimate, 'N/A', 1)} dB
               </div>
               <div class="metric-item">
-                <strong>RMS Level:</strong> ${original.rms_level.toFixed(4)}
+                <strong>RMS Level:</strong> ${safeValue(original.rms_level, 'N/A', 4)}
               </div>
               <div class="metric-item">
-                <strong>Dynamic Range:</strong> ${original.dynamic_range.toFixed(
-                  1
-                )} dB
+                <strong>Dynamic Range:</strong> ${safeValue(original.dynamic_range, 'N/A', 1)} dB
               </div>
               <div class="metric-item">
-                <strong>Noise Floor:</strong> ${original.noise_floor.toFixed(4)}
+                <strong>Noise Floor:</strong> ${safeValue(original.noise_floor, 'N/A', 4)}
               </div>
             </div>
           </div>
@@ -663,20 +688,17 @@ class AdvancedAudioApp {
             </div>
             <div class="card-body">
               <div class="metric-item">
-                <strong>SNR:</strong> ${processed.snr_estimate.toFixed(1)} dB
+                <strong>SNR:</strong> ${safeValue(processed.snr_estimate, 'N/A', 1)} dB
               </div>
               <div class="metric-item">
-                <strong>RMS Level:</strong> ${processed.rms_level.toFixed(4)}
+                <strong>RMS Level:</strong> ${safeValue(processed.rms_level, 'N/A', 4)}
               </div>
               <div class="metric-item">
-                <strong>Dynamic Range:</strong> ${processed.dynamic_range.toFixed(
-                  1
-                )} dB
+                <strong>Dynamic Range:</strong> ${safeValue(processed.dynamic_range, 'N/A', 1)} dB
               </div>
               <div class="metric-item">
-                <strong>Noise Floor:</strong> ${processed.noise_floor.toFixed(
-                  4
-                )}
+                <strong>Noise Floor:</strong> ${safeValue(processed.noise_floor, 'N/A', 4)}
+              </div>
               </div>
             </div>
           </div>
@@ -688,32 +710,28 @@ class AdvancedAudioApp {
             </div>
             <div class="card-body">
               <div class="metric-item ${
-                comparison.snr_improvement_db > 0
+                (comparison.snr_improvement_db || 0) > 0
                   ? "text-success"
                   : "text-warning"
               }">
                 <strong>SNR Cải Thiện:</strong> ${
-                  comparison.snr_improvement_db > 0 ? "+" : ""
-                }${comparison.snr_improvement_db.toFixed(1)} dB
+                  (comparison.snr_improvement_db || 0) > 0 ? "+" : ""
+                }${safeValue(comparison.snr_improvement_db, '0.0', 1)} dB
               </div>
               <div class="metric-item ${
-                comparison.rms_reduction_percent > 0
+                (comparison.rms_reduction_percent || 0) > 0
                   ? "text-success"
                   : "text-warning"
               }">
-                <strong>RMS Giảm:</strong> ${comparison.rms_reduction_percent.toFixed(
-                  1
-                )}%
+                <strong>RMS Giảm:</strong> ${safeValue(comparison.rms_reduction_percent, '0.0', 1)}%
               </div>
               <div class="metric-item">
-                <strong>Noise Floor Giảm:</strong> ${comparison.noise_floor_reduction.toFixed(
-                  4
-                )}
+                <strong>Noise Floor Giảm:</strong> ${safeValue(comparison.noise_floor_reduction, '0.0', 4)}
               </div>
               <div class="metric-item">
                 <strong>Dynamic Range:</strong> ${
-                  comparison.dynamic_range_change > 0 ? "+" : ""
-                }${comparison.dynamic_range_change.toFixed(1)} dB
+                  (comparison.dynamic_range_change || 0) > 0 ? "+" : ""
+                }${safeValue(comparison.dynamic_range_change, '0.0', 1)} dB
               </div>
             </div>
           </div>
@@ -818,24 +836,53 @@ class AdvancedAudioApp {
       document.getElementById("advancedComparisonChart") ||
       this.createAdvancedChartContainer();
 
+    // Extract filename from full path
+    const filename = chartPath.split('/').pop().split('\\').pop();
+
     container.innerHTML = `
       <div class="card">
-        <div class="card-header">
-          <h6 class="mb-0">📈 Biểu Đồ Phân Tích Chi Tiết</h6>
+        <div class="card-header bg-primary text-white">
+          <h6 class="mb-0">📈 Biểu Đồ Phân Tích Chi Tiết - Advanced Visualization</h6>
         </div>
         <div class="card-body">
-          <img src="/static/results/${chartPath}?${new Date().getTime()}" 
+          <img src="/${chartPath}?${new Date().getTime()}" 
                class="img-fluid w-100" 
-               alt="Noise Reduction Detailed Analysis"
-               style="max-height: 800px; object-fit: contain;">
-          <div class="mt-3">
-            <small class="text-muted">
-              <strong>Giải thích biểu đồ:</strong><br>
-              • <strong>Waveform:</strong> So sánh dạng sóng âm thanh trước và sau xử lý<br>
-              • <strong>Spectrogram:</strong> Phân tích tần số theo thời gian (màu càng sáng = cường độ càng cao)<br>
-              • <strong>Metrics:</strong> So sánh các chỉ số kỹ thuật<br>
-              • <strong>Processing Details:</strong> Thông tin chi tiết về quá trình xử lý và sample được lấy từ đâu
-            </small>
+               alt="Advanced Noise Reduction Analysis"
+               style="max-height: 1000px; object-fit: contain; border: 2px solid #dee2e6; border-radius: 8px;">
+          <div class="mt-4">
+            <div class="alert alert-info">
+              <h6><i class="fas fa-chart-line"></i> Chi Tiết Các Biểu Đồ:</h6>
+              <div class="row">
+                <div class="col-md-6">
+                  <strong>📊 Waveform & Spectrum:</strong><br>
+                  • So sánh dạng sóng âm thanh gốc và đã xử lý<br>
+                  • Phân tích phổ tần số để thấy nhiễu bị loại bỏ<br><br>
+                  
+                  <strong>🌈 Spectrograms:</strong><br>
+                  • Hình ảnh 2D của âm thanh theo thời gian<br>
+                  • Màu sáng = cường độ cao, tối = ít năng lượng<br>
+                  • So sánh trực quan nhiễu trước/sau
+                </div>
+                <div class="col-md-6">
+                  <strong>📈 Metrics & Analysis:</strong><br>
+                  • SNR, RMS, Dynamic Range comparison<br>
+                  • Hiệu quả giảm nhiễu theo thời gian<br><br>
+                  
+                  <strong>🎯 Quality Assessment:</strong><br>
+                  • Đánh giá chất lượng tổng thể<br>
+                  • Thông số kỹ thuật chi tiết<br>
+                  • Khuyến nghị cải thiện
+                </div>
+              </div>
+            </div>
+            <div class="text-center mt-3">
+              <a href="/${chartPath}" target="_blank" class="btn btn-outline-primary">
+                <i class="fas fa-external-link-alt"></i> Xem Ảnh Kích Thước Đầy Đủ
+              </a>
+              <a href="/${chartPath}" download="${filename}" class="btn btn-outline-success ms-2">
+                <i class="fas fa-download"></i> Tải Về Biểu Đồ
+              </a>
+            </div>
           </div>
         </div>
       </div>
@@ -887,19 +934,19 @@ class AdvancedAudioApp {
   }
 
   displayNoiseResults(result) {
-    const analysis = result.original_analysis;
+    const analysis = result.original_analysis || {};
 
-    // Populate simplified noise results
+    // Populate simplified noise results with safe access
     document.getElementById("snrEstimate").textContent =
       analysis.snr_estimate?.toFixed(1) || "N/A";
     document.getElementById("dynamicRange").textContent =
       analysis.dynamic_range?.toFixed(1) || "N/A";
 
-    // Show SNR improvement (key metric for đề bài)
+    // Show SNR improvement (key metric for đề bài) with safe access
     const snrImprovementElement = document.getElementById("snrImprovement");
-    if (snrImprovementElement && result.snr_improvement) {
+    if (snrImprovementElement && result.snr_improvement != null) {
       snrImprovementElement.textContent =
-        "+" + result.snr_improvement.toFixed(1);
+        "+" + Number(result.snr_improvement).toFixed(1);
     }
 
     // Show method used
@@ -987,14 +1034,18 @@ class AdvancedAudioApp {
 
       if (result.success) {
         this.hideProcessingStatus();
-        this.displayNoiseResults(result);
+        // Use the advanced display for detailed results
+        this.displayAdvancedNoiseResults(result);
 
         const methodName =
           method === "ml" ? "AI/ML Hệ Thống" : "Thư Viện Tốt Nhất";
+        
+        // Safe access to snr_improvement
+        const snrImprovement = result.comparison_analysis?.comparison_metrics?.snr_improvement_db != null ? 
+          Number(result.comparison_analysis?.comparison_metrics?.snr_improvement_db).toFixed(2) : 'N/A';
+        
         this.showSuccess(
-          `Giảm nhiễu thành công! SNR cải thiện: ${result.snr_improvement.toFixed(
-            2
-          )} dB - ${methodName}`
+          `Giảm nhiễu thành công! SNR cải thiện: ${snrImprovement} dB - ${methodName}`
         );
       } else {
         throw new Error(result.error);
@@ -2164,6 +2215,10 @@ class AdvancedAudioApp {
     this.showAlert(message, "danger");
   }
 
+  showWarning(message) {
+    this.showAlert(message, "warning");
+  }
+
   showAlert(message, type = "info") {
     // Remove existing alerts
     document
@@ -2267,7 +2322,9 @@ class AdvancedAudioApp {
 
       if (result.success) {
         this.showSuccess(`✓ Recording saved: ${result.filename}`);
-        this.showSuccess(`📊 Duration: ${result.duration.toFixed(2)}s`);
+        const duration = result.duration != null ? 
+          Number(result.duration).toFixed(2) : 'N/A';
+        this.showSuccess(`📊 Duration: ${duration}s`);
 
         // Update UI
         document.getElementById("startRecording").disabled = false;
@@ -2291,11 +2348,15 @@ class AdvancedAudioApp {
     // Tạo thông báo thành công với link download
     const alertDiv = document.createElement("div");
     alertDiv.className = "alert alert-success alert-dismissible fade show mt-3";
+    
+    const duration = result.duration != null ? 
+      Number(result.duration).toFixed(2) : 'N/A';
+    
     alertDiv.innerHTML = `
       <h6><i class="fas fa-check-circle"></i> Recording Complete!</h6>
       <p class="mb-2">
         <strong>File:</strong> ${result.filename}<br>
-        <strong>Duration:</strong> ${result.duration.toFixed(2)} seconds<br>
+        <strong>Duration:</strong> ${duration} seconds<br>
         <strong>Size:</strong> ${result.file_size || "N/A"}
       </p>
       <div class="d-flex gap-2">
@@ -2353,8 +2414,9 @@ class AdvancedAudioApp {
       const result = await response.json();
 
       if (response.ok && result.success) {
+        const plotCount = result.plot_files?.length || 0;
         this.showSuccess(
-          `Analysis exported successfully! Generated ${result.plot_files.length} plots and 1 report file.`
+          `Analysis exported successfully! Generated ${plotCount} plots and 1 report file.`
         );
       } else {
         this.showError(result.error || "Export failed");
