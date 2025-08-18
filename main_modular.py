@@ -48,7 +48,7 @@ class MainApplication:
         os.makedirs(self.app.config['RESULTS_FOLDER'], exist_ok=True)
         
         # Initialize processing engines
-        self.sample_rate = 22050
+        self.sample_rate = 44100 # 22050
         self.equalizer_engine = EqualizerEngine(sample_rate=self.sample_rate)
         self.noise_reduction_engine = NoiseReductionEngine(sample_rate=self.sample_rate)
         self.genre_classification_engine = GenreClassificationEngine(sample_rate=self.sample_rate)
@@ -142,10 +142,11 @@ class MainApplication:
                 
                 data = request.get_json()
                 gains = data.get('gains', {})
+                filter_type = data.get('filter_type', 'iir') # Default to iir if not provided
                 
                 # Apply equalizer using the main method
                 processed_audio = self.equalizer_engine.apply_equalizer(
-                    self.current_audio, gains
+                    self.current_audio, gains, filter_type=filter_type
                 )
                 
                 # Save processed audio

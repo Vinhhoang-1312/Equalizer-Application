@@ -5,7 +5,7 @@ Bộ cân bằng âm 10 băng tần với các dải tần số cụ thể và p
 """
 
 import numpy as np
-from scipy.signal import butter, sosfilt
+from scipy.signal import butter, sosfilt, firwin, lfilter
 from typing import Dict, List, Tuple
 
 class EqualizerEngine:
@@ -64,13 +64,38 @@ class EqualizerEngine:
         # Return SOS (Second-Order Sections) format for stability
         return np.array([[b0/a0, b1/a0, b2/a0, 1, a1/a0, a2/a0]])
 
-    def apply_equalizer(self, audio: np.ndarray, gains: Dict[str, float]) -> np.ndarray:
+    def _create_fir_filter(self, band_name: str, center_freq: float, gain_db: float, num_taps: int = 101):
         """
-        Apply equalizer using a cascade of IIR peaking filters.
+        Creates an FIR filter (low-pass, band-pass, or high-pass) for a given frequency band.
+        Gain is applied by scaling the filter coefficients.
+        """
+        nyquist = 0.5 * self.sample_rate
+        freqs = list(self.frequency_bands.values())
+        freq_idx = freqs.index(center_freq)
+        
+        linear_gain = 10**(gain_db / 20.0) # Convert dB to linear gain
+
+        if band_name == 'band_31_hz': # Lowest band: Low-pass
+            cutoff_freq = np.sqrt(freqs[freq_idx] * freqs[freq_idx + 1]) / nyquist
+            fir_coeffs = firwin(num_taps, cutoff_freq, pass_zero=True)
+        elif band_name == 'band_16k_hz': # Highest band: High-pass
+            cutoff_freq = np.sqrt(freqs[freq_idx - 1] * freqs[freq_idx]) / nyquist
+            fir_coeffs = firwin(num_taps, cutoff_freq, pass_zero=False)
+        else: # Middle bands: Band-pass
+            low_cutoff = np.sqrt(freqs[freq_idx - 1] * freqs[freq_idx]) / nyquist
+            high_cutoff = np.sqrt(freqs[freq_idx] * freqs[freq_idx + 1]) / nyquist
+            fir_coeffs = firwin(num_taps, [low_cutoff, high_cutoff], pass_zero=False)
+        
+        return fir_coeffs * linear_gain # Apply gain by scaling coefficients
+
+    def apply_equalizer(self, audio: np.ndarray, gains: Dict[str, float], filter_type: str = 'iir') -> np.ndarray:
+        """
+        Apply equalizer using a cascade of IIR peaking filters or FIR filters.
         
         Args:
             audio: Input audio signal.
             gains: Dictionary of frequency band gains in dB.
+            filter_type: Type of filter to apply ('iir' for peaking, 'fir' for FIR).
             
         Returns:
             Processed audio signal.
@@ -82,9 +107,18 @@ class EqualizerEngine:
 
         for band_name, center_freq in self.frequency_bands.items():
             gain_db = gains.get(band_name, 0.0)
-            if gain_db != 0.0:
-                sos_filter = self._create_peaking_filter(center_freq, gain_db)
-                processed_audio = sosfilt(sos_filter, processed_audio)
+            
+            if filter_type == 'iir':
+                if gain_db != 0.0:
+                    sos_filter = self._create_peaking_filter(center_freq, gain_db)
+                    processed_audio = sosfilt(sos_filter, processed_audio)
+            elif filter_type == 'fir':
+                # For FIR, even 0dB gain means applying the filter to shape the band
+                # We apply the filter for all bands to ensure consistent phase/latency
+                fir_coeffs = self._create_fir_filter(band_name, center_freq, gain_db)
+                processed_audio = lfilter(fir_coeffs, 1.0, processed_audio)
+            else:
+                raise ValueError("Invalid filter_type. Must be 'iir' or 'fir'.")
         
         # Normalize to prevent clipping
         max_val = np.max(np.abs(processed_audio))
@@ -93,13 +127,14 @@ class EqualizerEngine:
             
         return processed_audio.astype(np.float32)
 
-    def apply_preset(self, audio: np.ndarray, preset_name: str) -> np.ndarray:
+    def apply_preset(self, audio: np.ndarray, preset_name: str, filter_type: str = 'iir') -> np.ndarray:
         """
         Apply an equalizer preset to the audio.
         
         Args:
             audio: Input audio signal.
             preset_name: Name of the preset to apply.
+            filter_type: Type of filter to apply ('iir' for peaking, 'fir' for FIR).
             
         Returns:
             Processed audio signal.
@@ -108,11 +143,12 @@ class EqualizerEngine:
             raise ValueError(f"Unknown preset: {preset_name}")
         
         gains = self.presets[preset_name]
-        return self.apply_equalizer(audio, gains)
+        return self.apply_equalizer(audio, gains, filter_type)
 
     def get_frequency_response(self, gains: Dict[str, float], num_points: int = 4096) -> Tuple[np.ndarray, np.ndarray]:
         """
         Calculate the frequency response of the current EQ settings.
+        NOTE: This method currently only supports IIR (peaking) filters.
         
         Args:
             gains: Equalizer gains in dB.
