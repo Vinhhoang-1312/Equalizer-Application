@@ -115,7 +115,8 @@ class AdvancedAudioApp {
         this.currentFile = result;
         this.displayUploadedFileInfo(result);
         this.hideProcessingStatus();
-        // Remove the success message - just show file info
+        // NEW: Initialize the audio player and equalizer
+        this.initAudioPlayerAndEq();
       } else {
         throw new Error(result.error);
       }
@@ -224,128 +225,266 @@ class AdvancedAudioApp {
     }
   }
 
-  // Equalizer Module
+  // Equalizer Module - NEW REAL-TIME IMPLEMENTATION
   setupEqualizer() {
-    // Slider value updates
-    const sliders = [
-      "subBass",
-      "bass",
-      "lowMid",
-      "mid",
-      "highMid",
-      "presence",
-      "brilliance",
-      "air",
-      "ultraHigh",
-      "extreme",
-    ];
+    // Web Audio API setup
+    this.audioContext = new (window.AudioContext || window.webkitAudioContext)();
+    this.audioSource = null;
+    this.audioBuffer = null;
+    this.gainNode = this.audioContext.createGain();
+    this.filterNodes = [];
 
-    sliders.forEach((slider) => {
-      const element = document.getElementById(slider);
-      const valueElement = document.getElementById(slider + "Value");
-
-      element.addEventListener("input", (e) => {
-        valueElement.textContent = e.target.value + " dB";
-        this.updateFrequencyResponse();
-      });
+    // Player controls
+    document.getElementById('eq-play-btn').addEventListener('click', () => this.playEq());
+    document.getElementById('eq-pause-btn').addEventListener('click', () => this.pauseEq());
+    document.getElementById('eq-stop-btn').addEventListener('click', () => this.stopEq());
+    document.getElementById('eq-volume-slider').addEventListener('input', (e) => {
+        if (this.gainNode) {
+            this.gainNode.gain.value = e.target.value;
+        }
     });
 
-    // Preset loading
-    document.getElementById("loadPreset").addEventListener("click", () => {
-      this.loadEqualizerPreset();
-    });
-
-    // Processing
-    document
-      .getElementById("processEqualizer")
-      .addEventListener("click", () => {
-        this.processEqualizer();
-      });
-
-    // Reset
-    document.getElementById("resetEqualizer").addEventListener("click", () => {
-      this.resetEqualizer();
-    });
-
-    // Initialize frequency response chart
-    this.initFrequencyResponseChart();
+    // Preset and save buttons
+    document.getElementById('loadPreset').addEventListener('click', () => this.loadEqualizerPreset());
+    document.getElementById('processEqualizer').addEventListener('click', () => this.saveEqualizerAudio());
   }
 
-  async loadEqualizerPreset() {
-    const presetName = document.getElementById("eqPreset").value;
-    if (!presetName) return;
+  async initAudioPlayerAndEq() {
+    if (!this.currentFile) return;
 
+    this.showProcessingStatus('Loading audio for player...');
     try {
-      const response = await fetch("/api/equalizer/presets");
-      const data = await response.json();
+        // Fetch the actual audio file
+        const response = await fetch(`/uploads/${this.currentFile.filename}`);
+        if (!response.ok) {
+            throw new Error(`HTTP error! status: ${response.status}`);
+        }
+        const audioData = await response.arrayBuffer();
 
-      if (data.presets[presetName]) {
-        const gains = data.presets[presetName];
+        // Decode audio data for Web Audio API
+        this.audioBuffer = await this.audioContext.decodeAudioData(audioData);
 
-        // Map preset gains to sliders
-        const mapping = {
-          sub_bass: "subBass",
-          bass: "bass",
-          low_mid: "lowMid",
-          mid: "mid",
-          high_mid: "highMid",
-          presence: "presence",
-          brilliance: "brilliance",
-          air: "air",
-          ultra_high: "ultraHigh",
-          extreme: "extreme",
-        };
+        this.drawWaveform(this.audioBuffer);
+        this.createEqSliders(this.getFrequencyBands());
+        this.setupFilterNodes();
 
-        Object.entries(mapping).forEach(([key, sliderId]) => {
-          const slider = document.getElementById(sliderId);
-          const valueElement = document.getElementById(sliderId + "Value");
+        document.getElementById('equalizer-player-section').style.display = 'block';
+        this.hideProcessingStatus();
+        this.showSuccess('Audio loaded. Ready to play and equalize.');
 
-          if (gains[key] !== undefined) {
-            slider.value = gains[key];
-            valueElement.textContent = gains[key] + " dB";
-          }
-        });
-
-        this.updateFrequencyResponse();
-        this.showSuccess(`Loaded preset: ${presetName}`);
-      }
     } catch (error) {
-      this.showError("Failed to load preset: " + error.message);
+        this.hideProcessingStatus();
+        this.showError('Failed to load audio for player: ' + error.message);
+        console.error(error);
     }
   }
 
-  async processEqualizer() {
+  getFrequencyBands() {
+      return {
+          'band_31_hz': 31,
+          'band_62_hz': 62,
+          'band_125_hz': 125,
+          'band_250_hz': 250,
+          'band_500_hz': 500,
+          'band_1k_hz': 1000,
+          'band_2k_hz': 2000,
+          'band_4k_hz': 4000,
+          'band_8k_hz': 8000,
+          'band_16k_hz': 16000
+      };
+  }
+
+  createEqSliders(bands) {
+      const container = document.getElementById('equalizer-bands');
+      container.innerHTML = ''; // Clear existing sliders
+      for (const [key, freq] of Object.entries(bands)) {
+          const sliderHtml = `
+              <div class="col-md-6 col-lg-4">
+                  <div class="slider-container">
+                      <div class="slider-label">
+                          <span>${freq < 1000 ? freq + ' Hz' : (freq / 1000) + ' kHz'}</span>
+                          <span id="${key}_value">0 dB</span>
+                      </div>
+                      <input type="range" class="form-range eq-slider" data-band="${key}" id="${key}" min="-20" max="20" value="0" step="0.5">
+                  </div>
+              </div>
+          `;
+          container.innerHTML += sliderHtml;
+      }
+
+      // Add event listeners to new sliders
+      document.querySelectorAll('.eq-slider').forEach(slider => {
+          slider.addEventListener('input', (e) => {
+              const band = e.target.dataset.band;
+              const gain = parseFloat(e.target.value);
+              document.getElementById(`${band}_value`).textContent = `${gain} dB`;
+              this.updateFilterGain(band, gain);
+          });
+      });
+  }
+
+  setupFilterNodes() {
+      this.filterNodes = [];
+      const bands = this.getFrequencyBands();
+      for (const [key, freq] of Object.entries(bands)) {
+          const filter = this.audioContext.createBiquadFilter();
+          filter.type = 'peaking';
+          filter.frequency.value = freq;
+          filter.Q.value = 1.41; // Standard Q value
+          filter.gain.value = 0;
+          this.filterNodes.push({key: key, node: filter});
+      }
+
+      // Connect nodes: source -> filter1 -> filter2 -> ... -> gain -> destination
+      if (this.audioSource) {
+          let lastNode = this.audioSource;
+          this.filterNodes.forEach(f => {
+              lastNode.connect(f.node);
+              lastNode = f.node;
+          });
+          lastNode.connect(this.gainNode);
+          this.gainNode.connect(this.audioContext.destination);
+      }
+  }
+
+  updateFilterGain(bandKey, gain) {
+      const filter = this.filterNodes.find(f => f.key === bandKey);
+      if (filter) {
+          filter.node.gain.value = gain;
+      }
+  }
+
+  playEq() {
+      if (!this.audioBuffer) {
+          this.showError('Audio buffer is not loaded yet.');
+          return;
+      }
+      if (this.audioContext.state === 'suspended') {
+          this.audioContext.resume();
+      }
+      // Stop any existing source
+      if (this.audioSource) {
+          this.audioSource.stop();
+      }
+
+      this.audioSource = this.audioContext.createBufferSource();
+      this.audioSource.buffer = this.audioBuffer;
+
+      // Connect nodes in sequence
+      let lastNode = this.audioSource;
+      this.filterNodes.forEach(f => {
+          lastNode.connect(f.node);
+          lastNode = f.node;
+      });
+      lastNode.connect(this.gainNode);
+      this.gainNode.connect(this.audioContext.destination);
+
+      this.audioSource.start(0);
+  }
+
+  pauseEq() {
+      if (this.audioContext.state === 'running') {
+          this.audioContext.suspend();
+      }
+  }
+
+  stopEq() {
+      if (this.audioSource) {
+          this.audioSource.stop(0);
+          this.audioSource = null; // Allow for playing again
+      }
+  }
+
+  drawWaveform(buffer) {
+      const container = document.getElementById('waveform-container');
+      const canvas = document.getElementById('waveform-display');
+      const ctx = canvas.getContext('2d');
+
+      // Set canvas dimensions to match container
+      canvas.width = container.clientWidth;
+      canvas.height = container.clientHeight;
+
+      const data = buffer.getChannelData(0);
+      const step = Math.ceil(data.length / canvas.width);
+      const amp = canvas.height / 2;
+
+      ctx.fillStyle = '#f0f2f5';
+      ctx.fillRect(0, 0, canvas.width, canvas.height);
+      ctx.lineWidth = 1;
+      ctx.strokeStyle = '#667eea';
+      ctx.beginPath();
+
+      for (let i = 0; i < canvas.width; i++) {
+          let min = 1.0;
+          let max = -1.0;
+          for (let j = 0; j < step; j++) {
+              const datum = data[(i * step) + j];
+              if (datum < min) min = datum;
+              if (datum > max) max = datum;
+          }
+          ctx.moveTo(i, (1 + min) * amp);
+          ctx.lineTo(i, (1 + max) * amp);
+      }
+      ctx.stroke();
+  }
+
+  async loadEqualizerPreset() {
+    const presetName = document.getElementById('eqPreset').value;
+    if (!presetName) return;
+
+    try {
+        const response = await fetch('/api/equalizer/presets');
+        const data = await response.json();
+
+        if (data.presets[presetName]) {
+            const gains = data.presets[presetName];
+            for (const [band, gainValue] of Object.entries(gains)) {
+                const slider = document.getElementById(band);
+                const valueLabel = document.getElementById(`${band}_value`);
+                if (slider) {
+                    slider.value = gainValue;
+                    valueLabel.textContent = `${gainValue} dB`;
+                    this.updateFilterGain(band, gainValue);
+                }
+            }
+            this.showSuccess(`Loaded preset: ${presetName}`);
+        } else {
+            this.showError(`Preset "${presetName}" not found.`);
+        }
+    } catch (error) {
+        this.showError('Failed to load presets: ' + error.message);
+    }
+  }
+
+  async saveEqualizerAudio() {
     if (!this.currentFile) {
       this.showError("Please upload an audio file first");
       return;
     }
 
     const gains = this.getEqualizerGains();
-    const method = document.getElementById("eqMethod").value;
-    const preset = document.getElementById("eqPreset").value;
 
     try {
-      this.showProcessingStatus("Applying equalizer...");
+      this.showProcessingStatus("Applying equalizer and saving file...");
 
       const response = await fetch("/api/equalizer/process", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({
-          gains: gains,
-          method: method,
-          preset: preset || null,
-        }),
+        body: JSON.stringify({ gains }),
       });
 
       const result = await response.json();
 
       if (result.success) {
         this.hideProcessingStatus();
-        const rmsChange = result.rms_change_db != null ? 
-          Number(result.rms_change_db).toFixed(2) : 'N/A';
-        this.showSuccess(
-          `Equalizer applied! RMS change: ${rmsChange} dB`
-        );
+        this.showSuccess(`Saved processed file to: ${result.output_path}`);
+        // Optionally, provide a download link
+        const downloadLink = document.createElement('a');
+        downloadLink.href = `/api/audio/download/${result.output_path.split('/').pop().split('\\').pop()}`;
+        downloadLink.textContent = 'Download Processed File';
+        downloadLink.className = 'btn btn-link';
+        this.showSuccess('File saved. ', downloadLink);
+
       } else {
         throw new Error(result.error);
       }
@@ -356,124 +495,11 @@ class AdvancedAudioApp {
   }
 
   getEqualizerGains() {
-    return {
-      sub_bass: parseFloat(document.getElementById("subBass").value),
-      bass: parseFloat(document.getElementById("bass").value),
-      low_mid: parseFloat(document.getElementById("lowMid").value),
-      mid: parseFloat(document.getElementById("mid").value),
-      high_mid: parseFloat(document.getElementById("highMid").value),
-      presence: parseFloat(document.getElementById("presence").value),
-      brilliance: parseFloat(document.getElementById("brilliance").value),
-      air: parseFloat(document.getElementById("air").value),
-      ultra_high: parseFloat(document.getElementById("ultraHigh").value),
-      extreme: parseFloat(document.getElementById("extreme").value),
-    };
-  }
-
-  resetEqualizer() {
-    const sliders = [
-      "subBass",
-      "bass",
-      "lowMid",
-      "mid",
-      "highMid",
-      "presence",
-      "brilliance",
-      "air",
-      "ultraHigh",
-      "extreme",
-    ];
-
-    sliders.forEach((slider) => {
-      document.getElementById(slider).value = 0;
-      document.getElementById(slider + "Value").textContent = "0 dB";
+    const gains = {};
+    document.querySelectorAll('.eq-slider').forEach(slider => {
+        gains[slider.dataset.band] = parseFloat(slider.value);
     });
-
-    document.getElementById("eqPreset").value = "";
-    this.updateFrequencyResponse();
-  }
-
-  initFrequencyResponseChart() {
-    const ctx = document
-      .getElementById("frequencyResponseChart")
-      .getContext("2d");
-
-    this.charts.frequencyResponse = new Chart(ctx, {
-      type: "line",
-      data: {
-        labels: [],
-        datasets: [
-          {
-            label: "Frequency Response",
-            data: [],
-            borderColor: "rgb(102, 126, 234)",
-            backgroundColor: "rgba(102, 126, 234, 0.1)",
-            borderWidth: 2,
-            fill: true,
-          },
-        ],
-      },
-      options: {
-        responsive: true,
-        maintainAspectRatio: false,
-        scales: {
-          x: {
-            type: "logarithmic",
-            title: { display: true, text: "Frequency (Hz)" },
-          },
-          y: {
-            title: { display: true, text: "Gain (dB)" },
-            min: -25,
-            max: 25,
-          },
-        },
-      },
-    });
-
-    this.updateFrequencyResponse();
-  }
-
-  updateFrequencyResponse() {
-    // Generate frequency response curve
-    const frequencies = [];
-    const response = [];
-
-    // Log scale from 20Hz to 20kHz
-    for (let i = 0; i < 100; i++) {
-      const freq = 20 * Math.pow(1000, i / 99); // 20Hz to 20kHz
-      frequencies.push(freq);
-
-      // Calculate response based on current gains
-      let gain = 0;
-      const gains = this.getEqualizerGains();
-      const bands = {
-        60: gains.sub_bass,
-        170: gains.bass,
-        310: gains.low_mid,
-        600: gains.mid,
-        1000: gains.high_mid,
-        3000: gains.presence,
-        6000: gains.brilliance,
-        12000: gains.air,
-        14000: gains.ultra_high,
-        16000: gains.extreme,
-      };
-
-      // Simple bell curve approximation
-      Object.entries(bands).forEach(([centerFreq, bandGain]) => {
-        const center = parseFloat(centerFreq);
-        const distance = Math.abs(Math.log10(freq) - Math.log10(center));
-        const influence = Math.exp(-distance * 2); // Gaussian-like curve
-        gain += bandGain * influence;
-      });
-
-      response.push(gain);
-    }
-
-    // Update chart
-    this.charts.frequencyResponse.data.labels = frequencies;
-    this.charts.frequencyResponse.data.datasets[0].data = response;
-    this.charts.frequencyResponse.update();
+    return gains;
   }
 
   // Noise Reduction Module
