@@ -47,8 +47,15 @@ class AdvancedAudioApp {
     mainTabs.forEach((tabBtn) => {
       tabBtn.addEventListener("shown.bs.tab", (e) => {
         const target = e.target.getAttribute("data-bs-target");
-        if (target === "#real-time") {
+        if (target === "#realtime") {
           this.setupRealtimeProcessing();
+        } else if (target === "#equalizer") {
+          // Ensure waveform canvas is resized when Equalizer tab is shown
+          this.resizeWaveformCanvas();
+          // Redraw waveform if audio is already loaded
+          if (this.audioBuffer) {
+            this.drawWaveform(this.audioBuffer);
+          }
         } else {
           this.resetRealtimeRecordingUI();
         }
@@ -233,6 +240,9 @@ class AdvancedAudioApp {
     this.audioSource = null;
     this.audioBuffer = null;
     this.gainNode = this.audioContext.createGain();
+    this.playbackStartTime = 0;
+    this.playbackOffset = 0;
+    this.playbackAnimationId = null;
     this.filterNodes = [];
 
     // Player controls
@@ -265,18 +275,31 @@ class AdvancedAudioApp {
         // Decode audio data for Web Audio API
         this.audioBuffer = await this.audioContext.decodeAudioData(audioData);
 
-        document.getElementById('equalizer-player-section').style.display = 'block'; // Move this line up
-        this.resizeWaveformCanvas(); // Ensure canvas is sized before drawing
-        this.drawWaveform(this.audioBuffer);
+        console.log("initAudioPlayerAndEq: audioBuffer loaded", this.audioBuffer); // Debug log
+
+        document.getElementById('equalizer-player-section').style.display = 'block'; // Make visible
+
+        // Defer canvas sizing and drawing until the next animation frame
+        // This ensures the browser has had a chance to calculate layout
+        window.requestAnimationFrame(() => {
+          setTimeout(() => {
+            this.resizeWaveformCanvas(); // Now container should have dimensions
+            console.log("initAudioPlayerAndEq: resizeWaveformCanvas called (deferred)"); // Debug log
+            this.drawWaveform(this.audioBuffer);
+            console.log("initAudioPlayerAndEq: drawWaveform called (deferred)"); // Debug log
+          }, 0)
+        });
+
         this.createEqSliders(this.getFrequencyBands());
         this.setupFilterNodes();
+
         this.hideProcessingStatus();
         this.showSuccess('Audio loaded. Ready to play and equalize.');
 
     } catch (error) {
         this.hideProcessingStatus();
         this.showError('Failed to load audio for player: ' + error.message);
-        console.error(error);
+        console.error("initAudioPlayerAndEq error:", error); // Debug log
     }
   }
 
@@ -380,12 +403,26 @@ class AdvancedAudioApp {
       lastNode.connect(this.gainNode);
       this.gainNode.connect(this.audioContext.destination);
 
-      this.audioSource.start(0);
+      // Start playback from current offset
+      this.audioSource.start(0, this.playbackOffset);
+      this.playbackStartTime = this.audioContext.currentTime; // Store start time for indicator
+
+      this.startPlaybackIndicator(); // Start the visual indicator
+
+      // Stop indicator when audio ends
+      this.audioSource.onended = () => {
+          this.stopPlaybackIndicator();
+          this.playbackOffset = 0; // Reset offset when playback finishes
+          this.drawWaveform(this.audioBuffer); // Redraw waveform to clear indicator
+      };
   }
 
   pauseEq() {
       if (this.audioContext.state === 'running') {
           this.audioContext.suspend();
+          // Calculate current playback position
+          this.playbackOffset += this.audioContext.currentTime - this.playbackStartTime;
+          this.stopPlaybackIndicator();
       }
   }
 
@@ -393,12 +430,67 @@ class AdvancedAudioApp {
       if (this.audioSource) {
           this.audioSource.stop(0);
           this.audioSource = null; // Allow for playing again
+          this.playbackOffset = 0; // Reset offset
+          this.stopPlaybackIndicator(); // Stop the visual indicator
+          this.drawWaveform(this.audioBuffer); // Redraw waveform to clear indicator
       }
+  }
+
+  startPlaybackIndicator() {
+      if (this.playbackAnimationId) {
+          cancelAnimationFrame(this.playbackAnimationId);
+      }
+      const animate = () => {
+          this.drawPlaybackIndicator();
+          this.playbackAnimationId = requestAnimationFrame(animate);
+      };
+      animate();
+  }
+
+  stopPlaybackIndicator() {
+      if (this.playbackAnimationId) {
+          cancelAnimationFrame(this.playbackAnimationId);
+          this.playbackAnimationId = null;
+      }
+  }
+
+  drawPlaybackIndicator() {
+      const canvas = document.getElementById('waveform-display');
+      const ctx = canvas.getContext('2d');
+
+      if (!this.audioBuffer || !this.audioSource) {
+          return;
+      }
+
+      // Clear canvas and redraw waveform
+      this.drawWaveform(this.audioBuffer);
+
+      const currentTime = this.playbackOffset + (this.audioContext.currentTime - this.playbackStartTime);
+      const duration = this.audioBuffer.duration;
+
+      if (currentTime >= duration) {
+          this.stopPlaybackIndicator();
+          this.playbackOffset = 0;
+          return;
+      }
+
+      const x = (currentTime / duration) * canvas.width;
+
+      // Draw the vertical line
+      ctx.strokeStyle = '#ff0000'; // Red color for the indicator
+      ctx.lineWidth = 2;
+      ctx.beginPath();
+      ctx.moveTo(x, 0);
+      ctx.lineTo(x, canvas.height);
+      ctx.stroke();
   }
 
   drawWaveform(buffer) {
       const canvas = document.getElementById('waveform-display');
       const ctx = canvas.getContext('2d');
+
+      console.log("drawWaveform: canvas dimensions", canvas.width, canvas.height); // Debug log
+      console.log("drawWaveform: buffer info", buffer.length, buffer.numberOfChannels); // Debug log
 
       // Dimensions are set by resizeWaveformCanvas
 
@@ -430,8 +522,11 @@ class AdvancedAudioApp {
     const container = document.getElementById('waveform-container');
     const canvas = document.getElementById('waveform-display');
     if (container && canvas) {
-      canvas.width = container.clientWidth;
-      canvas.height = container.clientHeight;
+      canvas.width = container.clientWidth || 600;
+      canvas.height = container.clientHeight || 150;
+      console.log("resizeWaveformCanvas: container/canvas dimensions", container.clientWidth, container.clientHeight); // Debug log
+    } else {
+      console.log("resizeWaveformCanvas: container or canvas not found!"); // Debug log
     }
   }
 
