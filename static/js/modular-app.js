@@ -304,29 +304,30 @@ class AdvancedAudioApp {
   }
 
   getFrequencyBands() {
-      return {
-          'band_31_hz': 31,
-          'band_62_hz': 62,
-          'band_125_hz': 125,
-          'band_250_hz': 250,
-          'band_500_hz': 500,
-          'band_1k_hz': 1000,
-          'band_2k_hz': 2000,
-          'band_4k_hz': 4000,
-          'band_8k_hz': 8000,
-          'band_16k_hz': 16000
-      };
+      return [
+          { key: 'band_31_hz', freq: 31, name: 'Sub Bass' },
+          { key: 'band_62_hz', freq: 62, name: 'Bass' },
+          { key: 'band_125_hz', freq: 125, name: 'Low Midrange' },
+          { key: 'band_250_hz', freq: 250, name: 'Midrange' },
+          { key: 'band_500_hz', freq: 500, name: 'Upper Midrange' },
+          { key: 'band_1k_hz', freq: 1000, name: 'Presence' },
+          { key: 'band_2k_hz', freq: 2000, name: 'Lower Treble' },
+          { key: 'band_4k_hz', freq: 4000, name: 'Mid Treble' },
+          { key: 'band_8k_hz', freq: 8000, name: 'Upper Treble' },
+          { key: 'band_16k_hz', freq: 16000, name: 'Air' }
+      ];
   }
 
   createEqSliders(bands) {
       const container = document.getElementById('equalizer-bands');
       container.innerHTML = ''; // Clear existing sliders
-      for (const [key, freq] of Object.entries(bands)) {
+      bands.forEach(bandInfo => {
+          const { key, freq, name } = bandInfo;
           const sliderHtml = `
               <div class="col-md-6 col-lg-4">
                   <div class="slider-container">
                       <div class="slider-label">
-                          <span>${freq < 1000 ? freq + ' Hz' : (freq / 1000) + ' kHz'}</span>
+                          <span>${name} (${freq < 1000 ? freq + ' Hz' : (freq / 1000) + ' kHz'})</span>
                           <span id="${key}_value">0 dB</span>
                       </div>
                       <input type="range" class="form-range eq-slider" data-band="${key}" id="${key}" min="-20" max="20" value="0" step="0.5">
@@ -334,7 +335,7 @@ class AdvancedAudioApp {
               </div>
           `;
           container.innerHTML += sliderHtml;
-      }
+      });
 
       // Add event listeners to new sliders
       document.querySelectorAll('.eq-slider').forEach(slider => {
@@ -350,14 +351,15 @@ class AdvancedAudioApp {
   setupFilterNodes() {
       this.filterNodes = [];
       const bands = this.getFrequencyBands();
-      for (const [key, freq] of Object.entries(bands)) {
+      bands.forEach(bandInfo => {
+          const { key, freq } = bandInfo;
           const filter = this.audioContext.createBiquadFilter();
           filter.type = 'peaking';
           filter.frequency.value = freq;
           filter.Q.value = 1.41; // Standard Q value
           filter.gain.value = 0;
           this.filterNodes.push({key: key, node: filter});
-      }
+      });
 
       // Connect nodes: source -> filter1 -> filter2 -> ... -> gain -> destination
       if (this.audioSource) {
