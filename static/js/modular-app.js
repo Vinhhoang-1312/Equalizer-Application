@@ -32,6 +32,7 @@ class AdvancedAudioApp {
     this.setupTabSwitching();
     this.setupAnalysis();
     this.setupSocketEvents();
+    window.addEventListener('resize', () => this.resizeWaveformCanvas());
 
     // Setup realtime tab since it's active by default
     this.setupRealtimeProcessing();
@@ -281,11 +282,11 @@ class AdvancedAudioApp {
         // Decode audio data for Web Audio API
         this.audioBuffer = await this.audioContext.decodeAudioData(audioData);
 
+        document.getElementById('equalizer-player-section').style.display = 'block'; // Move this line up
+        this.resizeWaveformCanvas(); // Ensure canvas is sized before drawing
         this.drawWaveform(this.audioBuffer);
         this.createEqSliders(this.getFrequencyBands());
         this.setupFilterNodes();
-
-        document.getElementById('equalizer-player-section').style.display = 'block';
         this.hideProcessingStatus();
         this.showSuccess('Audio loaded. Ready to play and equalize.');
 
@@ -413,13 +414,10 @@ class AdvancedAudioApp {
   }
 
   drawWaveform(buffer) {
-      const container = document.getElementById('waveform-container');
       const canvas = document.getElementById('waveform-display');
       const ctx = canvas.getContext('2d');
 
-      // Set canvas dimensions to match container
-      canvas.width = container.clientWidth;
-      canvas.height = container.clientHeight;
+      // Dimensions are set by resizeWaveformCanvas
 
       const data = buffer.getChannelData(0);
       const step = Math.ceil(data.length / canvas.width);
@@ -443,6 +441,15 @@ class AdvancedAudioApp {
           ctx.lineTo(i, (1 + max) * amp);
       }
       ctx.stroke();
+  }
+
+  resizeWaveformCanvas() {
+    const container = document.getElementById('waveform-container');
+    const canvas = document.getElementById('waveform-display');
+    if (container && canvas) {
+      canvas.width = container.clientWidth;
+      canvas.height = container.clientHeight;
+    }
   }
 
   async loadEqualizerPreset() {
@@ -480,6 +487,7 @@ class AdvancedAudioApp {
     }
 
     const gains = this.getEqualizerGains();
+    const filterType = document.querySelector('input[name="filterType"]:checked').value;
 
     try {
       this.showProcessingStatus("Applying equalizer and saving file...");
@@ -487,7 +495,7 @@ class AdvancedAudioApp {
       const response = await fetch("/api/equalizer/process", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ gains }),
+        body: JSON.stringify({ gains, filter_type: filterType }),
       });
 
       const result = await response.json();
