@@ -7,6 +7,13 @@ Bộ cân bằng âm 10 băng tần với các dải tần số cụ thể và p
 import numpy as np
 from scipy.signal import butter, sosfilt, firwin, lfilter
 from typing import Dict, List, Tuple
+import matplotlib
+matplotlib.use('Agg') # Use non-interactive backend
+import matplotlib.pyplot as plt
+import librosa
+import librosa.display
+import time
+import os
 
 class EqualizerEngine:
     def __init__(self, sample_rate: int = 22050):
@@ -105,20 +112,23 @@ class EqualizerEngine:
             
         processed_audio = audio.copy()
 
-        for band_name, center_freq in self.frequency_bands.items():
-            gain_db = gains.get(band_name, 0.0)
-            
-            if filter_type == 'iir':
+        if filter_type == 'iir':
+            for band_name, center_freq in self.frequency_bands.items():
+                gain_db = gains.get(band_name, 0.0)
                 if gain_db != 0.0:
                     sos_filter = self._create_peaking_filter(center_freq, gain_db)
                     processed_audio = sosfilt(sos_filter, processed_audio)
-            elif filter_type == 'fir':
-                # For FIR, even 0dB gain means applying the filter to shape the band
-                # We apply the filter for all bands to ensure consistent phase/latency
+        elif filter_type == 'fir':
+            # For FIR, we create a composite filter by summing the individual band filters
+            num_taps = 101
+            composite_fir_coeffs = np.zeros(num_taps)
+            for band_name, center_freq in self.frequency_bands.items():
+                gain_db = gains.get(band_name, 0.0)
                 fir_coeffs = self._create_fir_filter(band_name, center_freq, gain_db)
-                processed_audio = lfilter(fir_coeffs, 1.0, processed_audio)
-            else:
-                raise ValueError("Invalid filter_type. Must be 'iir' or 'fir'.")
+                composite_fir_coeffs += fir_coeffs
+            processed_audio = lfilter(composite_fir_coeffs, 1.0, processed_audio)
+        else:
+            raise ValueError("Invalid filter_type. Must be 'iir' or 'fir'.")
         
         # Normalize to prevent clipping
         max_val = np.max(np.abs(processed_audio))
@@ -126,6 +136,70 @@ class EqualizerEngine:
             processed_audio /= max_val
             
         return processed_audio.astype(np.float32)
+
+    def generate_comparison_plots(self, original_audio: np.ndarray, processed_audio: np.ndarray, options: Dict[str, bool], output_dir: str) -> Dict[str, str]:
+        """
+        Generate comparison plots (waveform and spectrogram) for original vs. processed audio.
+
+        Args:
+            original_audio: The original audio signal.
+            processed_audio: The processed audio signal.
+            options: A dictionary indicating which plots to generate. e.g., {'displayWaveformPlot': True, 'displaySpectrogramPlot': True}
+            output_dir: The directory to save the plot images.
+
+        Returns:
+            A dictionary containing the paths to the generated plots.
+        """
+        plot_paths = {}
+        timestamp = int(time.time())
+        
+        os.makedirs(output_dir, exist_ok=True)
+
+        if options.get('displayWaveformPlot'):
+            plt.figure(figsize=(12, 6))
+            ax1 = plt.subplot(2, 1, 1)
+            librosa.display.waveshow(original_audio, sr=self.sample_rate, alpha=0.8)
+            plt.title('Original Waveform')
+            plt.xlabel(None)
+            plt.ylabel('Amplitude')
+            
+            plt.subplot(2, 1, 2, sharex=ax1, sharey=ax1)
+            librosa.display.waveshow(processed_audio, sr=self.sample_rate, alpha=0.8, color='r')
+            plt.title('Processed Waveform')
+            plt.xlabel('Time (s)')
+            plt.ylabel('Amplitude')
+            
+            plt.tight_layout()
+            path = os.path.join(output_dir, f"eq_waveform_{timestamp}.png")
+            plt.savefig(path)
+            plt.close()
+            plot_paths['waveform'] = path.replace(os.path.sep, '/')
+
+        if options.get('displaySpectrogramPlot'):
+            plt.figure(figsize=(12, 8))
+            
+            D_original = librosa.stft(original_audio)
+            S_db_original = librosa.amplitude_to_db(np.abs(D_original), ref=np.max)
+            ax1 = plt.subplot(2, 1, 1)
+            img = librosa.display.specshow(S_db_original, sr=self.sample_rate, x_axis='time', y_axis='log', ax=ax1)
+            fig = plt.gcf()
+            fig.colorbar(img, ax=ax1, format='%+2.0f dB')
+            plt.title('Original Spectrogram')
+            
+            D_processed = librosa.stft(processed_audio)
+            S_db_processed = librosa.amplitude_to_db(np.abs(D_processed), ref=np.max)
+            ax2 = plt.subplot(2, 1, 2, sharex=ax1, sharey=ax1)
+            img2 = librosa.display.specshow(S_db_processed, sr=self.sample_rate, x_axis='time', y_axis='log', ax=ax2)
+            fig.colorbar(img2, ax=ax2, format='%+2.0f dB')
+            plt.title('Processed Spectrogram')
+            
+            plt.tight_layout()
+            path = os.path.join(output_dir, f"eq_spectrogram_{timestamp}.png")
+            plt.savefig(path)
+            plt.close()
+            plot_paths['spectrogram'] = path.replace(os.path.sep, '/')
+            
+        return plot_paths
 
     def apply_preset(self, audio: np.ndarray, preset_name: str, filter_type: str = 'iir') -> np.ndarray:
         """
