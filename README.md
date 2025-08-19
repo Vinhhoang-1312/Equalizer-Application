@@ -68,6 +68,49 @@ models/              # Pre-trained models
    - Click "Compare Both Methods" - see which is better
 4. **Get results** - genre prediction with confidence score
 
+## 🎛️ Equalizer vs Real-time Tab: Key Differences
+
+### 🎛️ **Equalizer Tab** - File Processing
+**Purpose**: Offline audio file enhancement and analysis
+- **Input**: Upload WAV/MP3 files
+- **Processing**: Non-real-time, high-quality processing
+- **Output**: 
+  - ✅ Saves processed files to `static/results/` 
+  - ✅ Audio playback (original vs processed)
+  - ✅ Enhanced 2D visualizations with time domain
+  - ✅ Download links for processed files
+- **Visualization**: 
+  - 2D waveform comparison plots
+  - Frequency response charts
+  - Overlay plots with EQ settings
+  - Optional spectrograms
+- **Use Case**: Studio work, file enhancement, detailed analysis
+
+### ⚡ **Real-time Tab** - Live Processing  
+**Purpose**: Live audio input/output processing
+- **Input**: Microphone or audio device
+- **Processing**: Real-time with low latency (<500ms)
+- **Output**:
+  - ❌ No file saving (live stream only)
+  - ✅ Real-time monitoring and visualization
+  - ❌ No download capability (live processing)
+- **Visualization**:
+  - Live waveform displays
+  - Real-time spectrum analysis
+  - Level meters and monitoring
+- **Use Case**: Live performance, recording, real-time monitoring
+
+### 🔧 **Shared Components**
+Both tabs use the same audio processing engines:
+- `EqualizerEngine` - 10-band EQ with presets
+- `NoiseReductionEngine` - AI noise removal algorithms
+- Same filter algorithms (IIR, FIR, FFT)
+- Same frequency bands and presets
+
+### 💡 **When to Use Which?**
+- **Equalizer Tab**: When you want to enhance existing audio files and save results
+- **Real-time Tab**: When you need live audio processing for recording or performance
+
 ## 📞 Support
 
 Your system uses LOCAL data - no internet needed! All processing happens on your machine with your GTZAN dataset.

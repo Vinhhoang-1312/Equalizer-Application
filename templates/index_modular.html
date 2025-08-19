@@ -516,6 +516,98 @@
         margin: 20px 0;
       }
 
+      /* Audio Player Styles for Equalizer Results */
+      .audio-player-section {
+        background: rgba(255, 255, 255, 0.1);
+        border-radius: 12px;
+        padding: 15px;
+        border: 1px solid rgba(255, 255, 255, 0.2);
+        backdrop-filter: blur(10px);
+        margin-bottom: 10px;
+      }
+
+      .audio-player-section h6 {
+        color: #ffffff;
+        margin-bottom: 10px;
+        font-size: 14px;
+        font-weight: 600;
+      }
+
+      .audio-player-section audio {
+        width: 100%;
+        height: 40px;
+        border-radius: 8px;
+        background: rgba(0, 0, 0, 0.3);
+        border: 1px solid rgba(255, 255, 255, 0.1);
+      }
+
+      /* Visualization Plot Styles */
+      .visualization-section {
+        background: rgba(255, 255, 255, 0.05);
+        border-radius: 15px;
+        padding: 20px;
+        margin: 20px 0;
+        border: 1px solid rgba(255, 255, 255, 0.1);
+      }
+
+      .visualization-section h6 {
+        color: #ffffff;
+        margin-bottom: 15px;
+        font-size: 16px;
+        font-weight: 600;
+      }
+
+      .plot-container {
+        background: rgba(255, 255, 255, 0.9);
+        border-radius: 10px;
+        padding: 10px;
+        border: 1px solid rgba(255, 255, 255, 0.2);
+        overflow: hidden;
+      }
+
+      .visualization-plot {
+        width: 100%;
+        height: auto;
+        border-radius: 8px;
+        box-shadow: 0 4px 12px rgba(0, 0, 0, 0.1);
+        transition: transform 0.3s ease;
+      }
+
+      .visualization-plot:hover {
+        transform: scale(1.02);
+        cursor: pointer;
+      }
+
+      /* Processing Info Styles */
+      .processing-info {
+        margin: 20px 0;
+      }
+
+      .processing-info .alert {
+        border-radius: 12px;
+        border: none;
+        font-weight: 500;
+      }
+
+      /* Download Section Styles */
+      .download-section {
+        background: rgba(255, 255, 255, 0.1);
+        border-radius: 12px;
+        padding: 15px;
+        border: 1px solid rgba(255, 255, 255, 0.2);
+      }
+
+      .download-section .btn {
+        border-radius: 10px;
+        font-weight: 600;
+        transition: all 0.3s ease;
+      }
+
+      .download-section .btn:hover {
+        transform: translateY(-2px);
+        box-shadow: 0 6px 16px rgba(0, 0, 0, 0.2);
+      }
+
       .chart-container-large {
         background: rgba(255, 255, 255, 0.15);
         backdrop-filter: blur(20px);
@@ -1992,6 +2084,84 @@
               <!-- Frequency Response Chart -->
               <div class="chart-container">
                 <canvas id="frequencyResponseChart"></canvas>
+              </div>
+              
+              <!-- Equalizer Results -->
+              <div id="equalizerResults" style="display: none">
+                <div class="result-card">
+                  <h5><i class="fas fa-chart-line"></i> Equalizer Processing Results</h5>
+                  
+                  <!-- Audio Playback Section -->
+                  <div class="row mb-4">
+                    <div class="col-md-6">
+                      <div class="audio-player-section">
+                        <h6><i class="fas fa-play-circle"></i> Original Audio</h6>
+                        <audio id="originalEqAudio" controls style="width: 100%;">
+                          Your browser does not support the audio element.
+                        </audio>
+                      </div>
+                    </div>
+                    <div class="col-md-6">
+                      <div class="audio-player-section">
+                        <h6><i class="fas fa-play-circle"></i> EQ Processed Audio</h6>
+                        <audio id="processedEqAudio" controls style="width: 100%;">
+                          Your browser does not support the audio element.
+                        </audio>
+                      </div>
+                    </div>
+                  </div>
+                  
+                  <!-- Visualization Section -->
+                  <div class="visualization-section">
+                    <h6><i class="fas fa-chart-area"></i> Enhanced 2D Visualizations</h6>
+                    <div class="row">
+                      <div class="col-12 mb-3">
+                        <div class="plot-container">
+                          <img id="eqWaveformPlot" class="img-fluid visualization-plot" style="display: none;" />
+                        </div>
+                      </div>
+                      <div class="col-md-6 mb-3">
+                        <div class="plot-container">
+                          <img id="eqOverlayPlot" class="img-fluid visualization-plot" style="display: none;" />
+                        </div>
+                      </div>
+                      <div class="col-md-6 mb-3">
+                        <div class="plot-container">
+                          <img id="eqFreqResponsePlot" class="img-fluid visualization-plot" style="display: none;" />
+                        </div>
+                      </div>
+                      <div class="col-12 mb-3">
+                        <div class="plot-container">
+                          <img id="eqSpectrogramPlot" class="img-fluid visualization-plot" style="display: none;" />
+                        </div>
+                      </div>
+                    </div>
+                  </div>
+                  
+                  <!-- Processing Info -->
+                  <div class="processing-info">
+                    <div class="alert alert-success">
+                      <strong><i class="fas fa-check-circle"></i> EQ Processing Complete!</strong>
+                      <div id="eqProcessingMessage"></div>
+                    </div>
+                  </div>
+                  
+                  <!-- Download Links -->
+                  <div class="download-section mt-3">
+                    <div class="row">
+                      <div class="col-md-6">
+                        <a id="downloadOriginalEq" class="btn btn-outline-primary w-100" style="display: none;">
+                          <i class="fas fa-download"></i> Download Original
+                        </a>
+                      </div>
+                      <div class="col-md-6">
+                        <a id="downloadProcessedEq" class="btn btn-primary w-100" style="display: none;">
+                          <i class="fas fa-download"></i> Download EQ Processed
+                        </a>
+                      </div>
+                    </div>
+                  </div>
+                </div>
               </div>
             </div>
           </div>

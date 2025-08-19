@@ -5,12 +5,15 @@ Bộ cân bằng âm 10 băng tần với các dải tần số cụ thể và p
 """
 
 import numpy as np
+import os
+import time
 from scipy.signal import butter, sosfilt, firwin, lfilter
 from typing import Dict, List, Tuple
 import matplotlib
 matplotlib.use('Agg') # Use non-interactive backend
 import matplotlib.pyplot as plt
 import librosa
+import librosa.display
 import librosa.display
 import time
 import os
@@ -256,3 +259,141 @@ class EqualizerEngine:
         if preset_name not in self.presets:
             raise ValueError(f"Unknown preset: {preset_name}")
         return self.presets[preset_name].copy()
+    
+    def generate_enhanced_comparison_plots(self, original_audio: np.ndarray, processed_audio: np.ndarray, 
+                                         sample_rate: int, gains: Dict[str, float], 
+                                         options: Dict = None, output_dir: str = 'static/results') -> Dict[str, str]:
+        """
+        Generate enhanced 2D comparison plots including time domain waveforms and frequency response.
+        
+        Args:
+            original_audio: Original audio signal
+            processed_audio: Processed audio signal  
+            sample_rate: Audio sample rate
+            gains: Applied EQ gains
+            options: Plot options (optional)
+            output_dir: Output directory for plots
+            
+        Returns:
+            Dictionary containing paths to generated plots
+        """
+        plot_paths = {}
+        timestamp = int(time.time())
+        
+        # Ensure output directory exists
+        os.makedirs(output_dir, exist_ok=True)
+        
+        # 1. Enhanced 2D Time Domain Waveform Comparison
+        plt.figure(figsize=(14, 8))
+        
+        # Calculate time axis
+        duration = len(original_audio) / sample_rate
+        time_axis = np.linspace(0, duration, len(original_audio))
+        
+        # Plot original waveform
+        plt.subplot(2, 1, 1)
+        plt.plot(time_axis, original_audio, color='blue', alpha=0.7, linewidth=0.8, label='Original')
+        plt.title('Original Audio Waveform', fontsize=14, fontweight='bold')
+        plt.xlabel('Time (seconds)')
+        plt.ylabel('Amplitude')
+        plt.grid(True, alpha=0.3)
+        plt.legend()
+        plt.xlim(0, duration)
+        
+        # Plot processed waveform
+        plt.subplot(2, 1, 2)
+        plt.plot(time_axis, processed_audio, color='red', alpha=0.7, linewidth=0.8, label='EQ Processed')
+        plt.title('EQ Processed Audio Waveform', fontsize=14, fontweight='bold')
+        plt.xlabel('Time (seconds)')
+        plt.ylabel('Amplitude')
+        plt.grid(True, alpha=0.3)
+        plt.legend()
+        plt.xlim(0, duration)
+        
+        plt.tight_layout()
+        waveform_path = os.path.join(output_dir, f'eq_waveform_comparison_{timestamp}.png')
+        plt.savefig(waveform_path, dpi=150, bbox_inches='tight')
+        plt.close()
+        plot_paths['waveform_comparison'] = waveform_path.replace(os.path.sep, '/')
+        
+        # 2. Side-by-side Overlay Comparison
+        plt.figure(figsize=(14, 6))
+        plt.plot(time_axis, original_audio, color='blue', alpha=0.6, linewidth=1, label='Original')
+        plt.plot(time_axis, processed_audio, color='red', alpha=0.6, linewidth=1, label='EQ Processed')
+        plt.title('Audio Waveform Overlay Comparison', fontsize=16, fontweight='bold')
+        plt.xlabel('Time (seconds)', fontsize=12)
+        plt.ylabel('Amplitude', fontsize=12)
+        plt.grid(True, alpha=0.3)
+        plt.legend(fontsize=12)
+        plt.xlim(0, duration)
+        
+        # Add EQ settings text
+        eq_text = "Applied EQ Settings:\n"
+        for band, gain in gains.items():
+            if gain != 0:
+                freq = self.frequency_bands.get(band, 0)
+                eq_text += f"{freq}Hz: {gain:+.1f}dB\n"
+        
+        plt.text(0.02, 0.98, eq_text, transform=plt.gca().transAxes, 
+                fontsize=10, verticalalignment='top', 
+                bbox=dict(boxstyle='round', facecolor='wheat', alpha=0.8))
+        
+        plt.tight_layout()
+        overlay_path = os.path.join(output_dir, f'eq_overlay_comparison_{timestamp}.png')
+        plt.savefig(overlay_path, dpi=150, bbox_inches='tight')
+        plt.close()
+        plot_paths['overlay_comparison'] = overlay_path.replace(os.path.sep, '/')
+        
+        # 3. Frequency Response Visualization
+        freqs, response_db = self.get_frequency_response(gains, num_points=4096)
+        
+        plt.figure(figsize=(12, 6))
+        plt.semilogx(freqs, response_db, color='green', linewidth=2, label='EQ Response')
+        plt.axhline(y=0, color='black', linestyle='--', alpha=0.5)
+        plt.title('Equalizer Frequency Response', fontsize=16, fontweight='bold')
+        plt.xlabel('Frequency (Hz)', fontsize=12)
+        plt.ylabel('Gain (dB)', fontsize=12)
+        plt.grid(True, alpha=0.3)
+        plt.legend(fontsize=12)
+        plt.xlim(20, sample_rate/2)
+        
+        # Mark the EQ band frequencies
+        for band, freq in self.frequency_bands.items():
+            gain = gains.get(band, 0)
+            if gain != 0:
+                plt.axvline(x=freq, color='red', linestyle=':', alpha=0.7)
+                plt.text(freq, gain, f'{freq}Hz\n{gain:+.1f}dB', 
+                        ha='center', va='bottom', fontsize=8,
+                        bbox=dict(boxstyle='round,pad=0.3', facecolor='yellow', alpha=0.7))
+        
+        plt.tight_layout()
+        freq_response_path = os.path.join(output_dir, f'eq_frequency_response_{timestamp}.png')
+        plt.savefig(freq_response_path, dpi=150, bbox_inches='tight')
+        plt.close()
+        plot_paths['frequency_response'] = freq_response_path.replace(os.path.sep, '/')
+        
+        # 4. Spectrogram Comparison (if requested)
+        if options and options.get('include_spectrogram', False):
+            plt.figure(figsize=(14, 10))
+            
+            # Original spectrogram
+            plt.subplot(2, 1, 1)
+            D_orig = librosa.amplitude_to_db(np.abs(librosa.stft(original_audio)), ref=np.max)
+            librosa.display.specshow(D_orig, sr=sample_rate, x_axis='time', y_axis='hz')
+            plt.title('Original Audio Spectrogram')
+            plt.colorbar(format='%+2.0f dB')
+            
+            # Processed spectrogram
+            plt.subplot(2, 1, 2)
+            D_proc = librosa.amplitude_to_db(np.abs(librosa.stft(processed_audio)), ref=np.max)
+            librosa.display.specshow(D_proc, sr=sample_rate, x_axis='time', y_axis='hz')
+            plt.title('EQ Processed Audio Spectrogram')
+            plt.colorbar(format='%+2.0f dB')
+            
+            plt.tight_layout()
+            spectrogram_path = os.path.join(output_dir, f'eq_spectrogram_comparison_{timestamp}.png')
+            plt.savefig(spectrogram_path, dpi=150, bbox_inches='tight')
+            plt.close()
+            plot_paths['spectrogram_comparison'] = spectrogram_path.replace(os.path.sep, '/')
+        
+        return plot_paths

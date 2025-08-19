@@ -416,11 +416,39 @@ class AdvancedAudioApp {
 
       if (result.success) {
         this.hideProcessingStatus();
-        const rmsChange =
-          result.rms_change_db != null
-            ? Number(result.rms_change_db).toFixed(2)
-            : "N/A";
-        this.showSuccess(`Equalizer applied! RMS change: ${rmsChange} dB`);
+        
+        // Show results section
+        document.getElementById("equalizerResults").style.display = "block";
+        
+        // Update audio players
+        if (result.audio_files) {
+          const originalAudio = document.getElementById("originalEqAudio");
+          const processedAudio = document.getElementById("processedEqAudio");
+          
+          originalAudio.src = result.audio_files.original_url;
+          processedAudio.src = result.audio_files.processed_url;
+          
+          // Update download links
+          const downloadOriginal = document.getElementById("downloadOriginalEq");
+          const downloadProcessed = document.getElementById("downloadProcessedEq");
+          
+          downloadOriginal.href = result.audio_files.original_url;
+          downloadOriginal.download = result.audio_files.original;
+          downloadOriginal.style.display = "block";
+          
+          downloadProcessed.href = result.audio_files.processed_url;
+          downloadProcessed.download = result.audio_files.processed;
+          downloadProcessed.style.display = "block";
+        }
+        
+        // Generate enhanced visualizations
+        this.generateEqualizerVisualizations(gains);
+        
+        // Update processing message
+        document.getElementById("eqProcessingMessage").innerHTML = result.message || 'Equalizer processing complete!';
+        
+        const rmsChange = result.rms_change || "N/A";
+        this.showSuccess(`Equalizer applied! RMS change: ${rmsChange} dB. Files saved to static/results/`);
       } else {
         throw new Error(result.error);
       }
@@ -432,16 +460,16 @@ class AdvancedAudioApp {
 
   getEqualizerGains() {
     return {
-      sub_bass: parseFloat(document.getElementById("subBass").value),
-      bass: parseFloat(document.getElementById("bass").value),
-      low_mid: parseFloat(document.getElementById("lowMid").value),
-      mid: parseFloat(document.getElementById("mid").value),
-      high_mid: parseFloat(document.getElementById("highMid").value),
-      presence: parseFloat(document.getElementById("presence").value),
-      brilliance: parseFloat(document.getElementById("brilliance").value),
-      air: parseFloat(document.getElementById("air").value),
-      ultra_high: parseFloat(document.getElementById("ultraHigh").value),
-      extreme: parseFloat(document.getElementById("extreme").value),
+      band_31_hz: parseFloat(document.getElementById("subBass").value),    // Sub-bass 31Hz
+      band_62_hz: parseFloat(document.getElementById("bass").value),       // Bass 62Hz
+      band_125_hz: parseFloat(document.getElementById("lowMid").value),    // Low-mid 125Hz
+      band_250_hz: parseFloat(document.getElementById("mid").value),       // Mid 250Hz
+      band_500_hz: parseFloat(document.getElementById("highMid").value),   // High-mid 500Hz
+      band_1k_hz: parseFloat(document.getElementById("presence").value),   // Presence 1kHz
+      band_2k_hz: parseFloat(document.getElementById("brilliance").value), // Brilliance 2kHz
+      band_4k_hz: parseFloat(document.getElementById("air").value),        // Air 4kHz
+      band_8k_hz: parseFloat(document.getElementById("ultraHigh").value),  // Ultra-high 8kHz
+      band_16k_hz: parseFloat(document.getElementById("extreme").value),   // Extreme 16kHz
     };
   }
 
@@ -1860,14 +1888,20 @@ class AdvancedAudioApp {
   setupRealtimeProcessing() {
     console.log("🔧 Setting up Real-time Processing Module");
 
-    // Device management
-    document.getElementById("refreshDevices").addEventListener("click", () => {
-      this.loadAudioDevices();
-    });
+    // Device management - add null checks
+    const refreshDevicesBtn = document.getElementById("refreshDevices");
+    if (refreshDevicesBtn) {
+      refreshDevicesBtn.addEventListener("click", () => {
+        this.loadAudioDevices();
+      });
+    }
 
-    document.getElementById("testLatency").addEventListener("click", () => {
-      this.testLatency();
-    });
+    const testLatencyBtn = document.getElementById("testLatency");
+    if (testLatencyBtn) {
+      testLatencyBtn.addEventListener("click", () => {
+        this.testLatency();
+      });
+    }
 
     // Real-time control
     document.getElementById("startRealtime").addEventListener("click", () => {
@@ -3086,6 +3120,84 @@ class AdvancedAudioApp {
         return 0.9; // Frequency processing
       default:
         return 1.0; // bypass
+    }
+  }
+
+  async generateEqualizerVisualizations(gains) {
+    try {
+      console.log("🎨 Generating enhanced 2D equalizer visualizations...");
+      console.log("📊 Current gains:", gains);
+
+      const response = await fetch("/api/equalizer/visualize", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          gains: gains,
+          plot_options: {
+            include_spectrogram: true // Request spectrogram if needed
+          }
+        }),
+      });
+
+      console.log("🌐 API Response status:", response.status);
+      const result = await response.json();
+      console.log("📋 API Response data:", result);
+
+      if (result.success && result.plot_paths) {
+        console.log("🎯 Plot paths received:", result.plot_paths);
+        
+        // Display waveform comparison plot
+        if (result.plot_paths.waveform_comparison) {
+          const waveformImg = document.getElementById("eqWaveformPlot");
+          const imagePath = "/" + result.plot_paths.waveform_comparison;
+          console.log("📈 Loading waveform plot:", imagePath);
+          waveformImg.src = imagePath;
+          waveformImg.style.display = "block";
+          waveformImg.onload = () => console.log("✅ Waveform plot loaded successfully");
+          waveformImg.onerror = () => console.error("❌ Failed to load waveform plot:", imagePath);
+        }
+
+        // Display overlay comparison plot
+        if (result.plot_paths.overlay_comparison) {
+          const overlayImg = document.getElementById("eqOverlayPlot");
+          const imagePath = "/" + result.plot_paths.overlay_comparison;
+          console.log("📊 Loading overlay plot:", imagePath);
+          overlayImg.src = imagePath;
+          overlayImg.style.display = "block";
+          overlayImg.onload = () => console.log("✅ Overlay plot loaded successfully");
+          overlayImg.onerror = () => console.error("❌ Failed to load overlay plot:", imagePath);
+        }
+
+        // Display frequency response plot
+        if (result.plot_paths.frequency_response) {
+          const freqImg = document.getElementById("eqFreqResponsePlot");
+          const imagePath = "/" + result.plot_paths.frequency_response;
+          console.log("📡 Loading frequency response plot:", imagePath);
+          freqImg.src = imagePath;
+          freqImg.style.display = "block";
+          freqImg.onload = () => console.log("✅ Frequency response plot loaded successfully");
+          freqImg.onerror = () => console.error("❌ Failed to load frequency response plot:", imagePath);
+        }
+
+        // Display spectrogram if available
+        if (result.plot_paths.spectrogram_comparison) {
+          const spectroImg = document.getElementById("eqSpectrogramPlot");
+          const imagePath = "/" + result.plot_paths.spectrogram_comparison;
+          console.log("🌈 Loading spectrogram plot:", imagePath);
+          spectroImg.src = imagePath;
+          spectroImg.style.display = "block";
+          spectroImg.onload = () => console.log("✅ Spectrogram plot loaded successfully");
+          spectroImg.onerror = () => console.error("❌ Failed to load spectrogram plot:", imagePath);
+        }
+
+        console.log("✅ Enhanced 2D visualizations loaded successfully");
+      } else {
+        console.warn("⚠️ No visualization data received:", result);
+        this.showError("Failed to generate enhanced visualizations: " + (result.error || 'Unknown error'));
+      }
+    } catch (error) {
+      console.error("❌ Error generating visualizations:", error);
+      this.showError("Visualization generation failed: " + error.message);
     }
   }
 }

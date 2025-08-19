@@ -129,8 +129,14 @@ class MainApplication:
             """Serve uploaded files for the audio player."""
             return send_from_directory(self.app.config['UPLOAD_FOLDER'], filename)
         
+        @self.app.route('/static/results/<path:filename>')
+        def serve_results(filename):
+            """Serve result files (processed audio and plots)."""
+            return send_from_directory('static/results', filename)
+        
         @self.app.route('/api/equalizer/visualize', methods=['POST'])
         def visualize_equalizer():
+            """Generate enhanced 2D waveform and frequency visualizations for equalizer"""
             try:
                 data = request.get_json()
                 gains = data.get('gains')
@@ -141,16 +147,21 @@ class MainApplication:
 
                 processed_audio = self.equalizer_engine.apply_equalizer(self.current_audio, gains, filter_type='iir')
 
-                plot_paths = self.equalizer_engine.generate_comparison_plots(
+                # Generate enhanced plots with both 2D waveform and frequency response
+                plot_paths = self.equalizer_engine.generate_enhanced_comparison_plots(
                     original_audio=self.current_audio,
                     processed_audio=processed_audio,
+                    sample_rate=self.sample_rate,
+                    gains=gains,
                     options=plot_options,
                     output_dir='static/results'
                 )
 
                 return jsonify({
                     'success': True,
-                    'plot_paths': plot_paths
+                    'plot_paths': plot_paths,
+                    'gains_applied': gains,
+                    'message': 'Enhanced 2D visualizations generated successfully!'
                 })
             
             except Exception as e:
@@ -173,21 +184,41 @@ class MainApplication:
                     self.current_audio, gains, filter_type=filter_type
                 )
                 
-                # Save processed audio
-                output_path = os.path.join(
-                    self.app.config['UPLOAD_FOLDER'], 
-                    'processed_eq.wav'
-                )
-                sf.write(output_path, processed_audio, self.sample_rate)
+                # Calculate RMS change
+                original_rms = np.sqrt(np.mean(self.current_audio**2))
+                processed_rms = np.sqrt(np.mean(processed_audio**2))
+                rms_change = 20 * np.log10(processed_rms / original_rms) if original_rms > 0 else 0
+                
+                # Save processed audio to static/results with timestamp
+                timestamp = int(time.time())
+                original_filename = f'original_eq_{timestamp}.wav'
+                processed_filename = f'processed_eq_{timestamp}.wav'
+                
+                original_path = os.path.join(self.app.config['RESULTS_FOLDER'], original_filename)
+                processed_path = os.path.join(self.app.config['RESULTS_FOLDER'], processed_filename)
+                
+                # Save both files
+                sf.write(original_path, self.current_audio, self.sample_rate)
+                sf.write(processed_path, processed_audio, self.sample_rate)
                 
                 return jsonify({
                     'success': True,
-                    'output_path': output_path,
+                    'audio_files': {
+                        'original': original_filename,
+                        'processed': processed_filename,
+                        'original_url': f'/static/results/{original_filename}',
+                        'processed_url': f'/static/results/{processed_filename}',
+                        'original_path': original_path,
+                        'processed_path': processed_path
+                    },
                     'filter_type': filter_type,
-                    'gains_used': gains
+                    'gains_used': gains,
+                    'rms_change': f'{rms_change:.2f}',
+                    'message': f'Equalizer applied! RMS change: {rms_change:.2f} dB. Files saved to static/results/'
                 })
                 
             except Exception as e:
+                return jsonify({'error': str(e)}), 500
                 return jsonify({'error': str(e)}), 500
         
         @self.app.route('/api/noise_reduction/process', methods=['POST'])
@@ -206,13 +237,14 @@ class MainApplication:
                     self.current_audio, method, reduction_level
                 )
                 
-                # Save both original and processed audio files
+                # Save both original and processed audio files in RESULTS folder
                 timestamp = int(time.time())
                 original_filename = f'original_audio_{timestamp}.wav'
                 processed_filename = f'processed_nr_{method}_{timestamp}.wav'
                 
-                original_path = os.path.join(self.app.config['UPLOAD_FOLDER'], original_filename)
-                processed_path = os.path.join(self.app.config['UPLOAD_FOLDER'], processed_filename)
+                # Save to static/results for easy access
+                original_path = os.path.join(self.app.config['RESULTS_FOLDER'], original_filename)
+                processed_path = os.path.join(self.app.config['RESULTS_FOLDER'], processed_filename)
                 
                 # Save audio files
                 sf.write(original_path, self.current_audio, self.sample_rate)
@@ -223,21 +255,26 @@ class MainApplication:
                     self.current_audio, processed_audio, method, reduction_level
                 )
                 
-                # Add file paths to analysis
+                # Add file paths to analysis with web-accessible URLs
                 if 'error' in comparison_analysis:
                     return jsonify({'error': comparison_analysis['error']}), 400
+                    
                 comparison_analysis['audio_files'] = {
                     'original': original_filename,
                     'processed': processed_filename,
+                    'original_url': f'/static/results/{original_filename}',
+                    'processed_url': f'/static/results/{processed_filename}',
                     'original_path': original_path,
                     'processed_path': processed_path
                 }
+                
                 return jsonify({
                     'success': True,
                     'comparison_analysis': comparison_analysis,
                     'audio_files': comparison_analysis['audio_files'],
                     'method': method,
-                    'reduction_level': reduction_level
+                    'reduction_level': reduction_level,
+                    'message': f'Noise reduction applied successfully! Files saved to static/results/'
                 })
                 
             except Exception as e:
