@@ -4,24 +4,17 @@ Main Application Controller
 Điều phối tất cả các module và xử lý giao diện web
 """
 
-from flask import Flask, render_template, request, jsonify, send_file, send_from_directory
+from flask import Flask, render_template, request, jsonify, send_file, send_from_directory, session
 from flask_socketio import SocketIO, emit
 import os
-import json
-import base64
-import io
 import numpy as np
 import librosa
 import soundfile as sf
 from werkzeug.utils import secure_filename
-import threading
 import time
 import matplotlib
 matplotlib.use('Agg')
 import matplotlib.pyplot as plt
-# import seaborn as sns  # Removed to avoid import conflicts
-import librosa.display
-from typing import Dict, List, Optional
 
 # Import our engines
 from modules.equalizer_engine import EqualizerEngine
@@ -131,7 +124,33 @@ class MainApplication:
             """Serve uploaded files for the audio player."""
             return send_from_directory(self.app.config['UPLOAD_FOLDER'], filename)
         
-        
+        @self.app.route('/api/equalizer/visualize', methods=['POST'])
+        def visualize_equalizer():
+            try:
+                data = request.get_json()
+                gains = data.get('gains')
+                plot_options = data.get('plot_options')
+
+                if self.current_audio is None:
+                    return jsonify({'error': 'No audio file loaded'}), 400
+
+                processed_audio = self.equalizer_engine.apply_equalizer(self.current_audio, gains, filter_type='iir')
+
+                plot_paths = self.equalizer_engine.generate_comparison_plots(
+                    original_audio=self.current_audio,
+                    processed_audio=processed_audio,
+                    options=plot_options,
+                    output_dir='static/results'
+                )
+
+                return jsonify({
+                    'success': True,
+                    'plot_paths': plot_paths
+                })
+            
+            except Exception as e:
+                app.logger.error(f"Error in visualize_equalizer: {e}")
+                return jsonify({'success': False, 'error': str(e)}), 500
 
         @self.app.route('/api/equalizer/process', methods=['POST'])
         def process_equalizer():
@@ -159,6 +178,7 @@ class MainApplication:
                 return jsonify({
                     'success': True,
                     'output_path': output_path,
+                    'filter_type': filter_type,
                     'gains_used': gains
                 })
                 

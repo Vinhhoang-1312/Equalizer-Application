@@ -257,7 +257,9 @@ class AdvancedAudioApp {
 
     // Preset and save buttons
     document.getElementById('loadPreset').addEventListener('click', () => this.loadEqualizerPreset());
-    document.getElementById('processEqualizer').addEventListener('click', () => this.saveEqualizerAudio());
+    document.getElementById('processFirAudioBtn').addEventListener('click', () => this.processFirAudio());
+    document.getElementById('downloadProcessedAudioBtn').addEventListener('click', () => this.downloadProcessedAudio());
+    document.getElementById('generatePlotsBtn').addEventListener('click', () => this.generateEqualizerPlots());
   }
 
   async initAudioPlayerAndEq() {
@@ -560,7 +562,48 @@ class AdvancedAudioApp {
     }
   }
 
-  async saveEqualizerAudio() {
+  async processFirAudio() {
+    if (!this.currentFile) {
+      this.showError("Please upload an audio file first");
+      return;
+    }
+
+    const gains = this.getEqualizerGains();
+    const filterType = 'fir'; // Explicitly set to FIR for this process button
+    const plotOptions = {
+        displayWaveformPlot: document.getElementById('displayWaveformPlot').checked,
+        displaySpectrogramPlot: document.getElementById('displaySpectrogramPlot').checked
+    };
+
+    try {
+      this.showProcessingStatus("Processing FIR audio...");
+
+      const response = await fetch("/api/equalizer/process", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+            gains,
+            filter_type: filterType,
+            plot_options: plotOptions
+        }),
+      });
+
+      const result = await response.json();
+
+      if (result.success) {
+        this.hideProcessingStatus();
+        this.displayEqualizerResults(result); // This will display the FIR comparison player
+        this.showSuccess(`FIR audio processed. Output: ${result.output_path}`);
+      } else {
+        throw new Error(result.error);
+      }
+    } catch (error) {
+      this.hideProcessingStatus();
+      this.showError("FIR audio processing failed: " + error.message);
+    }
+  }
+
+  async downloadProcessedAudio() {
     if (!this.currentFile) {
       this.showError("Please upload an audio file first");
       return;
@@ -568,34 +611,157 @@ class AdvancedAudioApp {
 
     const gains = this.getEqualizerGains();
     const filterType = document.querySelector('input[name="filterType"]:checked').value;
+    const downloadFormat = document.getElementById('downloadFormat').value;
 
     try {
-      this.showProcessingStatus("Applying equalizer and saving file...");
+      this.showProcessingStatus(`Preparing ${downloadFormat.toUpperCase()} download...`);
 
-      const response = await fetch("/api/equalizer/process", {
+      const response = await fetch("/api/equalizer/download_processed_audio", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ gains, filter_type: filterType }),
+        body: JSON.stringify({
+            gains,
+            filter_type: filterType,
+            format: downloadFormat
+        }),
+      });
+
+      if (response.ok) {
+        const blob = await response.blob();
+        const url = window.URL.createObjectURL(blob);
+        const a = document.createElement('a');
+        a.style.display = 'none';
+        a.href = url;
+        a.download = `processed_audio.${downloadFormat}`;
+        document.body.appendChild(a);
+        a.click();
+        window.URL.revokeObjectURL(url);
+        this.hideProcessingStatus();
+        this.showSuccess(`Download of processed audio (${downloadFormat.toUpperCase()}) started.`);
+      } else {
+        const errorText = await response.text();
+        throw new Error(errorText || `HTTP error! status: ${response.status}`);
+      }
+    } catch (error) {
+      this.hideProcessingStatus();
+      this.showError("Download failed: " + error.message);
+    }
+  }
+
+  displayEqualizerResults(result) {
+    const container = document.getElementById('equalizer-results-section');
+    container.innerHTML = ''; // Clear previous results
+    container.style.display = 'none';
+
+    let contentAdded = false;
+
+    // 1. Add FIR comparison audio players
+    console.log(`Is audio? ${result.output_path}`)
+    console.log(`Is filter? ${result.filter_type}`)
+    
+    if (result.filter_type === 'fir' && result.output_path) {
+        const original_filename = this.currentFile.filename;
+        const processed_filename = result.output_path.split('/').pop().split('\\').pop();
+
+        console.log(`Is original exist? ${original_filename}`)
+        console.log(`Is processed exist? ${processed_filename}`)
+
+        const playerHtml = `
+            <div class="setting-group">
+                <h5><i class="fas fa-headphones-alt"></i> FIR Filter Audio Comparison</h5>
+                <div class="row">
+                    <div class="col-md-6">
+                        <h6>Original Audio</h6>
+                        <audio controls class="w-100" src="/uploads/${original_filename}"></audio>
+                    </div>
+                    <div class="col-md-6">
+                        <h6>Processed Audio (FIR)</h6>
+                        <audio controls class="w-100" src="/api/audio/download/${processed_filename}"></audio>
+                    </div>
+                </div>
+            </div>
+        `;
+        container.innerHTML += playerHtml;
+        contentAdded = true;
+    }
+
+    // 2. Add visualization plots
+    if (result.plot_paths) {
+        let plotsHtml = '<div class="setting-group"><h5><i class="fas fa-chart-bar"></i> Visualizations</h5>';
+        if (result.plot_paths.waveform) {
+            plotsHtml += `
+                <div class="analysis-plot">
+                    <h6>Waveform Comparison (Original vs. Processed)</h6>
+                    <a href="/${result.plot_paths.waveform}" target="_blank">
+                        <img src="/${result.plot_paths.waveform}?t=${new Date().getTime()}" class="img-fluid" alt="Waveform Comparison">
+                    </a>
+                </div>`;
+        }
+        if (result.plot_paths.spectrogram) {
+            plotsHtml += `
+                <div class="analysis-plot mt-3">
+                    <h6>Spectrogram Comparison (Original vs. Processed)</h6>
+                     <a href="/${result.plot_paths.spectrogram}" target="_blank">
+                        <img src="/${result.plot_paths.spectrogram}?t=${new Date().getTime()}" class="img-fluid" alt="Spectrogram Comparison">
+                    </a>
+                </div>`;
+        }
+        plotsHtml += '</div>';
+        container.innerHTML += plotsHtml;
+        contentAdded = true;
+    }
+
+    if (contentAdded) {
+        container.style.display = 'block';
+    }
+  }
+
+  async generateEqualizerPlots() {
+    if (!this.currentFile) {
+      this.showError("Please upload an audio file first");
+      return;
+    }
+
+    const gains = this.getEqualizerGains();
+    const filterType = document.querySelector('input[name="filterType"]:checked').value; 
+    // Get selected filter type
+    const plotOptions = {
+        displayWaveformPlot: document.getElementById('displayWaveformPlot').checked,
+        displaySpectrogramPlot: document.getElementById('displaySpectrogramPlot').checked
+    };
+
+    // If no plots are selected, do nothing
+    if (!plotOptions.displayWaveformPlot && !plotOptions.displaySpectrogramPlot) {
+        this.showWarning("Please select at least one type of plot to generate.");
+        return;
+    }
+
+    try {
+      this.showProcessingStatus("Generating visualizations...");
+
+      // We use the 'iir' filter type for visualization as it's faster and reflects the real-time preview
+      const response = await fetch("/api/equalizer/visualize", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ 
+            gains,
+            filter_type: filterType || 'iir', // Or get from UI if we want to visualize FIR effect
+            plot_options: plotOptions
+        }),
       });
 
       const result = await response.json();
 
       if (result.success) {
         this.hideProcessingStatus();
-        this.showSuccess(`Saved processed file to: ${result.output_path}`);
-        // Optionally, provide a download link
-        const downloadLink = document.createElement('a');
-        downloadLink.href = `/api/audio/download/${result.output_path.split('/').pop().split('\\').pop()}`;
-        downloadLink.textContent = 'Download Processed File';
-        downloadLink.className = 'btn btn-link';
-        this.showSuccess('File saved. ', downloadLink);
-
+        this.displayEqualizerResults(result); // This will only show plots
+        this.showSuccess('Visualizations generated successfully.');
       } else {
         throw new Error(result.error);
       }
     } catch (error) {
       this.hideProcessingStatus();
-      this.showError("Equalizer processing failed: " + error.message);
+      this.showError("Failed to generate visualizations: " + error.message);
     }
   }
 

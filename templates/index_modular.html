@@ -665,19 +665,54 @@
                 </div>
               </div>
 
-              <!-- Processing Controls -->
+              <!-- Process & Download Controls -->
               <div class="setting-group">
-                <h5>Save & Download</h5>
+                <h5>Process & Download</h5>
                 <div class="row">
-                  <div class="col-md-8">
-                    <p class="form-text">Apply the current EQ settings and save the result to a new audio file.</p>
-                  </div>
-                  <div class="col-md-4 d-flex align-items-center">
-                    <button class="btn btn-success-custom w-100" id="processEqualizer">
-                      <i class="fas fa-save"></i> Save Processed Audio
+                  <div class="col-md-6">
+                    <p class="form-text">Process audio with FIR filter and preview the result.</p>
+                    <button class="btn btn-primary w-100" id="processFirAudioBtn">
+                      <i class="fas fa-cogs"></i> Process FIR Audio
                     </button>
                   </div>
+                  <div class="col-md-6">
+                    <p class="form-text">Download processed audio (IIR or FIR) in selected format.</p>
+                    <div class="input-group">
+                      <select class="form-select" id="downloadFormat">
+                        <option value="wav">WAV</option>
+                        <option value="mp3">MP3</option>
+                      </select>
+                      <button class="btn btn-success-custom" id="downloadProcessedAudioBtn">
+                        <i class="fas fa-download"></i> Download
+                      </button>
+                    </div>
+                  </div>
                 </div>
+              </div>
+
+              <!-- Visualization Options -->
+              <div class="setting-group">
+                <h5><i class="fas fa-chart-bar"></i> Visualization Options</h5>
+                <p class="form-text">Select which charts to generate. The generated plots will compare the original audio against the currently selected EQ settings.</p>
+                <div class="form-check form-check-inline">
+                  <input class="form-check-input" type="checkbox" id="displayWaveformPlot" checked>
+                  <label class="form-check-label" for="displayWaveformPlot">Time-Domain Waveform</label>
+                </div>
+                <div class="form-check form-check-inline">
+                  <input class="form-check-input" type="checkbox" id="displaySpectrogramPlot" checked>
+                  <label class="form-check-label" for="displaySpectrogramPlot">Spectrogram</label>
+                </div>
+                <div class="mt-3">
+                    <button class="btn btn-info" id="generatePlotsBtn">
+                        <i class="fas fa-chart-line"></i> Generate Visualizations
+                    </button>
+                </div>
+              </div>
+
+              <!-- Equalizer Results Section -->
+              <div id="equalizer-results-section" class="mt-4" style="display: none;">
+                <!-- FIR comparison player will be inserted here -->
+                <!-- Visualization plots will be inserted here -->
               </div>
             </div>
           </div>
