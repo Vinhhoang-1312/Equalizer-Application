@@ -67,10 +67,3 @@ models/              # Pre-trained models
    - Click "Musicnn Deep Learning" - if installed
    - Click "Compare Both Methods" - see which is better
 4. **Get results** - genre prediction with confidence score
-
-## 📞 Support
-
-Your system uses LOCAL data - no internet needed! All processing happens on your machine with your GTZAN dataset.
-
----
-*Powered by your local GTZAN dataset* 🎵
