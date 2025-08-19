@@ -33,6 +33,9 @@ class AdvancedAudioApp {
     this.setupAnalysis();
     this.setupSocketEvents();
 
+    // Setup realtime tab since it's active by default
+    this.setupRealtimeProcessing();
+
     // Load initial data
     this.loadAudioDevices();
     this.loadEqualizerPresets();
@@ -46,7 +49,7 @@ class AdvancedAudioApp {
     mainTabs.forEach((tabBtn) => {
       tabBtn.addEventListener("shown.bs.tab", (e) => {
         const target = e.target.getAttribute("data-bs-target");
-        if (target === "#real-time") {
+        if (target === "#realtime") {
           this.setupRealtimeProcessing();
         } else {
           this.resetRealtimeRecordingUI();
@@ -59,8 +62,22 @@ class AdvancedAudioApp {
     // Reset trạng thái nút ghi âm khi chuyển tab
     const startBtn = document.getElementById("startRecording");
     const stopBtn = document.getElementById("stopRecording");
+    const testBtn = document.getElementById("testMicrophone");
+
     if (startBtn) startBtn.disabled = false;
     if (stopBtn) stopBtn.disabled = true;
+
+    // Reset test microphone button
+    if (testBtn) {
+      testBtn.innerHTML = '<i class="fas fa-microphone"></i> Test Mic';
+      testBtn.classList.remove("btn-success");
+      testBtn.classList.add("btn-info-custom");
+    }
+
+    // Stop microphone capture if active
+    if (this.isRecordingActive) {
+      this.stopMicrophoneCapture();
+    }
   }
   // File Upload Module
   setupFileUpload() {
@@ -250,9 +267,21 @@ class AdvancedAudioApp {
       });
     });
 
-    // Preset loading
-    document.getElementById("loadPreset").addEventListener("click", () => {
-      this.loadEqualizerPreset();
+    // Preset loading with buttons
+    const presetButtons = document.querySelectorAll(".eq-presets-buttons .btn");
+    presetButtons.forEach((button) => {
+      button.addEventListener("click", (e) => {
+        e.preventDefault();
+
+        // Remove active class from all buttons
+        presetButtons.forEach((btn) => btn.classList.remove("active"));
+
+        // Add active class to clicked button
+        button.classList.add("active");
+
+        // Load the preset
+        this.loadEqualizerPresetByName(button.dataset.preset);
+      });
     });
 
     // Processing
@@ -314,6 +343,49 @@ class AdvancedAudioApp {
     }
   }
 
+  async loadEqualizerPresetByName(presetName) {
+    if (!presetName) return;
+
+    try {
+      const response = await fetch("/api/equalizer/presets");
+      const data = await response.json();
+
+      if (data.presets[presetName]) {
+        const gains = data.presets[presetName];
+
+        // Map preset gains to sliders
+        const mapping = {
+          sub_bass: "subBass",
+          bass: "bass",
+          low_mid: "lowMid",
+          mid: "mid",
+          high_mid: "highMid",
+          presence: "presence",
+          brilliance: "brilliance",
+          air: "air",
+          ultra_high: "ultraHigh",
+          extreme: "extreme",
+        };
+
+        Object.entries(mapping).forEach(([key, sliderId]) => {
+          const slider = document.getElementById(sliderId);
+          const valueElement = document.getElementById(sliderId + "Value");
+
+          if (gains[key] !== undefined) {
+            slider.value = gains[key];
+            valueElement.textContent = gains[key] + " dB";
+          }
+        });
+
+        this.updateFrequencyResponse();
+        this.showSuccess(`Loaded ${presetName} preset successfully!`);
+      }
+    } catch (error) {
+      console.error("Error loading equalizer preset:", error);
+      this.showError("Error loading equalizer preset");
+    }
+  }
+
   async processEqualizer() {
     if (!this.currentFile) {
       this.showError("Please upload an audio file first");
@@ -322,7 +394,10 @@ class AdvancedAudioApp {
 
     const gains = this.getEqualizerGains();
     const method = document.getElementById("eqMethod").value;
-    const preset = document.getElementById("eqPreset").value;
+    const activePresetBtn = document.querySelector(
+      ".eq-presets-buttons .btn.active"
+    );
+    const preset = activePresetBtn ? activePresetBtn.dataset.preset : null;
 
     try {
       this.showProcessingStatus("Applying equalizer...");
@@ -389,7 +464,15 @@ class AdvancedAudioApp {
       document.getElementById(slider + "Value").textContent = "0 dB";
     });
 
-    document.getElementById("eqPreset").value = "";
+    // Reset preset buttons - activate "Flat" button
+    const presetButtons = document.querySelectorAll(".eq-presets-buttons .btn");
+    presetButtons.forEach((btn) => {
+      btn.classList.remove("active");
+      if (btn.dataset.preset === "flat") {
+        btn.classList.add("active");
+      }
+    });
+
     this.updateFrequencyResponse();
   }
 
@@ -1775,6 +1858,8 @@ class AdvancedAudioApp {
 
   // Real-time Processing Module
   setupRealtimeProcessing() {
+    console.log("🔧 Setting up Real-time Processing Module");
+
     // Device management
     document.getElementById("refreshDevices").addEventListener("click", () => {
       this.loadAudioDevices();
@@ -1786,10 +1871,12 @@ class AdvancedAudioApp {
 
     // Real-time control
     document.getElementById("startRealtime").addEventListener("click", () => {
+      console.log("🔥 Start Realtime button clicked!");
       this.startRealtimeProcessing();
     });
 
     document.getElementById("stopRealtime").addEventListener("click", () => {
+      console.log("⏹️ Stop Realtime button clicked!");
       this.stopRealtimeProcessing();
     });
 
@@ -1802,8 +1889,86 @@ class AdvancedAudioApp {
       this.stopRealtimeRecording();
     });
 
+    // Test microphone button
+    document.getElementById("testMicrophone").addEventListener("click", () => {
+      this.toggleMicrophoneTest();
+    });
+
+    // Real-time Audio Processing Controls
+    this.setupRealtimeControls();
+
     // Initialize audio visualizer
     this.initAudioVisualizer();
+
+    console.log("✅ Real-time Processing Module setup complete");
+  }
+
+  setupRealtimeControls() {
+    console.log("🎛️ Setting up real-time audio processing controls");
+
+    // EQ Controls
+    const eqCheckboxes = ["lowCut", "highCut"];
+    eqCheckboxes.forEach((id) => {
+      const element = document.getElementById(id);
+      if (element) {
+        element.addEventListener("change", () => {
+          console.log(`📊 EQ Control ${id} changed:`, element.checked);
+          this.updateRealtimeEffects();
+        });
+      }
+    });
+
+    // Noise Reduction Controls
+    const noiseCheckbox = document.getElementById("denoise");
+    if (noiseCheckbox) {
+      noiseCheckbox.addEventListener("change", () => {
+        console.log("🔇 Denoise changed:", noiseCheckbox.checked);
+        this.updateRealtimeEffects();
+      });
+    }
+
+    // Filter Type Controls (if exists)
+    const filterControls = ["iir", "fir"];
+    filterControls.forEach((id) => {
+      const element = document.getElementById(id);
+      if (element) {
+        element.addEventListener("change", () => {
+          console.log(`🎚️ Filter ${id} changed:`, element.checked);
+          this.updateRealtimeEffects();
+        });
+      }
+    });
+  }
+
+  async updateRealtimeEffects() {
+    if (!this.isRealtimeActive) return;
+
+    console.log("🔄 Updating real-time effects...");
+
+    // Get current state of all controls
+    const effects = {
+      lowCut: document.getElementById("lowCut")?.checked || false,
+      highCut: document.getElementById("highCut")?.checked || false,
+      denoise: document.getElementById("denoise")?.checked || false,
+      iir: document.getElementById("iir")?.checked || false,
+      fir: document.getElementById("fir")?.checked || false,
+    };
+
+    try {
+      const response = await fetch("/api/realtime/update_effects", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify(effects),
+      });
+
+      if (response.ok) {
+        console.log("✅ Real-time effects updated", effects);
+      } else {
+        console.error("❌ Failed to update effects:", response.status);
+      }
+    } catch (error) {
+      console.error("❌ Error updating effects:", error);
+    }
   }
 
   async loadAudioDevices() {
@@ -1837,19 +2002,35 @@ class AdvancedAudioApp {
   }
 
   async startRealtimeProcessing() {
+    console.log("🎯 startRealtimeProcessing() called");
+
     const equalizerParams = this.getEqualizerGains();
-    const noiseMethod = document.getElementById("noiseMethod").value;
-    const noiseLevel = parseFloat(
-      document.getElementById("reductionLevel").value
-    );
+    const noiseMethodEl = document.getElementById("noiseMethod");
+    const reductionLevelEl = document.getElementById("reductionLevel");
+
+    const noiseMethod = noiseMethodEl ? noiseMethodEl.value : "spectral";
+    const noiseLevel = reductionLevelEl
+      ? parseFloat(reductionLevelEl.value)
+      : 0.7;
+
     const enabledModules = {
-      equalizer: document.getElementById("enableEqualizer").checked,
-      noise_reduction: document.getElementById("enableNoiseReduction").checked,
-      genre_classification: document.getElementById("enableGenreClassification")
-        .checked,
+      equalizer: document.getElementById("enableEqualizer")?.checked || true,
+      noise_reduction:
+        document.getElementById("enableNoiseReduction")?.checked || true,
+      genre_classification:
+        document.getElementById("enableGenreClassification")?.checked || true,
     };
 
+    console.log("📊 Realtime params:", {
+      equalizerParams,
+      noiseMethod,
+      noiseLevel,
+      enabledModules,
+    });
+
     try {
+      console.log("📡 Sending request to /api/realtime/start");
+
       const response = await fetch("/api/realtime/start", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
@@ -1861,7 +2042,9 @@ class AdvancedAudioApp {
         }),
       });
 
+      console.log("📨 Response received:", response.status);
       const result = await response.json();
+      console.log("📋 Response data:", result);
 
       if (result.success) {
         this.isRealtimeActive = true;
@@ -1871,10 +2054,17 @@ class AdvancedAudioApp {
 
         this.showSuccess("Real-time processing started!");
         this.startStatsUpdater();
+
+        // Start microphone capture for visualization
+        console.log(
+          "🎤 Starting microphone capture for real-time visualization"
+        );
+        await this.initMicrophoneCapture();
       } else {
         throw new Error(result.error);
       }
     } catch (error) {
+      console.error("❌ Realtime start error:", error);
       this.showError("Failed to start real-time processing: " + error.message);
     }
   }
@@ -1927,43 +2117,266 @@ class AdvancedAudioApp {
   }
 
   initAudioVisualizer() {
-    const canvas = document.getElementById("audioVisualizer");
-    const ctx = canvas.getContext("2d");
+    // Initialize both input and output canvas
+    const inputCanvas = document.getElementById("inputVisualizer");
+    const outputCanvas = document.getElementById("outputVisualizer");
+    const inputCtx = inputCanvas ? inputCanvas.getContext("2d") : null;
+    const outputCtx = outputCanvas ? outputCanvas.getContext("2d") : null;
 
-    // Set canvas size
+    // Store canvas references
+    this.inputCanvas = inputCanvas;
+    this.outputCanvas = outputCanvas;
+    this.inputCtx = inputCtx;
+    this.outputCtx = outputCtx;
+
+    // Initialize audio context and analysis
+    this.audioContext = null;
+    this.analyser = null;
+    this.microphone = null;
+    this.isRecordingActive = false;
+
+    // Enhanced audio analysis buffers
+    this.frequencyData = new Uint8Array(2048);
+    this.timeData = new Uint8Array(2048);
+    this.outputFrequencyData = new Uint8Array(2048);
+    this.signalLevel = 0;
+    this.outputSignalLevel = 0;
+
+    // Set canvas size to fill container for both canvas
     const resizeCanvas = () => {
-      canvas.width = canvas.offsetWidth;
-      canvas.height = canvas.offsetHeight;
+      if (inputCanvas) {
+        const container = inputCanvas.parentElement;
+        inputCanvas.width = container.clientWidth;
+        inputCanvas.height = container.clientHeight;
+        console.log(
+          `Input Canvas resized: ${inputCanvas.width}x${inputCanvas.height}`
+        );
+      }
+      if (outputCanvas) {
+        const container = outputCanvas.parentElement;
+        outputCanvas.width = container.clientWidth;
+        outputCanvas.height = container.clientHeight;
+        console.log(
+          `Output Canvas resized: ${outputCanvas.width}x${outputCanvas.height}`
+        );
+      }
     };
 
     resizeCanvas();
     window.addEventListener("resize", resizeCanvas);
 
-    // Simple audio visualization
-    this.visualizerData = new Array(128).fill(0);
-
-    const draw = () => {
-      ctx.clearRect(0, 0, canvas.width, canvas.height);
-
-      const barWidth = canvas.width / this.visualizerData.length;
-      const gradient = ctx.createLinearGradient(0, 0, 0, canvas.height);
-      gradient.addColorStop(0, "rgb(102, 126, 234)");
-      gradient.addColorStop(1, "rgb(118, 75, 162)");
-
-      ctx.fillStyle = gradient;
-
-      this.visualizerData.forEach((value, index) => {
-        const barHeight = (value * canvas.height) / 100;
-        const x = index * barWidth;
-        const y = canvas.height - barHeight;
-
-        ctx.fillRect(x, y, barWidth - 1, barHeight);
-      });
-
-      requestAnimationFrame(draw);
+    // Drawing function for dual waveform visualization
+    const drawWaveform = () => {
+      this.drawInputWaveform();
+      this.drawOutputWaveform();
+      this.drawSignalBars();
+      requestAnimationFrame(drawWaveform);
     };
 
-    draw();
+    drawWaveform();
+  }
+
+  drawInputWaveform() {
+    if (!this.inputCtx || !this.inputCanvas) return;
+
+    const ctx = this.inputCtx;
+    const canvas = this.inputCanvas;
+
+    // Clear canvas with input gradient background (green theme)
+    const bgGradient = ctx.createLinearGradient(
+      0,
+      0,
+      canvas.width,
+      canvas.height
+    );
+    bgGradient.addColorStop(0, "#1a2e1a");
+    bgGradient.addColorStop(0.5, "#162e21");
+    bgGradient.addColorStop(1, "#0f4620");
+    ctx.fillStyle = bgGradient;
+    ctx.fillRect(0, 0, canvas.width, canvas.height);
+
+    if (this.isRecordingActive && this.analyser) {
+      // Get frequency data for input waveform
+      this.analyser.getByteFrequencyData(this.frequencyData);
+
+      // Calculate overall volume level
+      let total = 0;
+      for (let i = 0; i < this.frequencyData.length; i++) {
+        total += this.frequencyData[i];
+      }
+      const avgVolume = total / this.frequencyData.length;
+
+      // Draw input amplitude bars
+      const centerY = canvas.height / 2;
+      const barCount = 60;
+      const barWidth = canvas.width / barCount;
+      const maxBarHeight = canvas.height * 0.4;
+
+      // Input bars (green theme)
+      const barGradient = ctx.createLinearGradient(
+        0,
+        centerY - maxBarHeight,
+        0,
+        centerY + maxBarHeight
+      );
+      barGradient.addColorStop(0, "#00ff88");
+      barGradient.addColorStop(0.5, "#88ff00");
+      barGradient.addColorStop(1, "#00ff88");
+
+      ctx.fillStyle = barGradient;
+      ctx.shadowColor = "#00ff88";
+      ctx.shadowBlur = 3;
+
+      for (let i = 0; i < barCount; i++) {
+        const sampleIndex = Math.floor(
+          (i / barCount) * this.frequencyData.length
+        );
+        const amplitude = this.frequencyData[sampleIndex] || 0;
+        const barHeight = (amplitude / 255) * maxBarHeight;
+        const naturalVariation = (Math.random() - 0.5) * 0.1 * barHeight;
+        const finalHeight = Math.max(2, barHeight + naturalVariation);
+        const x = i * barWidth;
+
+        ctx.fillRect(x, centerY - finalHeight / 2, barWidth - 1, finalHeight);
+      }
+      ctx.shadowBlur = 0;
+
+      // Draw center line
+      ctx.strokeStyle = "rgba(255, 255, 255, 0.2)";
+      ctx.lineWidth = 1;
+      ctx.setLineDash([3, 3]);
+      ctx.beginPath();
+      ctx.moveTo(0, centerY);
+      ctx.lineTo(canvas.width, centerY);
+      ctx.stroke();
+      ctx.setLineDash([]);
+
+      // Input label
+      ctx.fillStyle = "#ffffff";
+      ctx.font = "10px Arial";
+      ctx.fillText("INPUT", 10, 15);
+    } else {
+      // Static display for input
+      const centerY = canvas.height / 2;
+      const barCount = 60;
+      const barWidth = canvas.width / barCount;
+
+      ctx.fillStyle = "rgba(100, 150, 200, 0.2)";
+      for (let i = 0; i < barCount; i++) {
+        const x = i * barWidth;
+        const variation = Math.random() * 2 - 1;
+        const barHeight = 3 + Math.abs(variation);
+        ctx.fillRect(x, centerY - barHeight / 2, barWidth - 1, barHeight);
+      }
+    }
+  }
+
+  drawOutputWaveform() {
+    if (!this.outputCtx || !this.outputCanvas) return;
+
+    const ctx = this.outputCtx;
+    const canvas = this.outputCanvas;
+
+    // Clear canvas with output gradient background (orange/red theme)
+    const bgGradient = ctx.createLinearGradient(
+      0,
+      0,
+      canvas.width,
+      canvas.height
+    );
+    bgGradient.addColorStop(0, "#2e1a1a");
+    bgGradient.addColorStop(0.5, "#2e1621");
+    bgGradient.addColorStop(1, "#460f20");
+    ctx.fillStyle = bgGradient;
+    ctx.fillRect(0, 0, canvas.width, canvas.height);
+
+    if (this.isRecordingActive && this.analyser) {
+      // For output, apply some processing simulation
+      // (In real implementation, this would come from processed audio)
+
+      const centerY = canvas.height / 2;
+      const barCount = 60;
+      const barWidth = canvas.width / barCount;
+      const maxBarHeight = canvas.height * 0.4;
+
+      // Output bars (orange/red theme)
+      const barGradient = ctx.createLinearGradient(
+        0,
+        centerY - maxBarHeight,
+        0,
+        centerY + maxBarHeight
+      );
+      barGradient.addColorStop(0, "#ff8800");
+      barGradient.addColorStop(0.5, "#ffaa00");
+      barGradient.addColorStop(1, "#ff8800");
+
+      ctx.fillStyle = barGradient;
+      ctx.shadowColor = "#ff8800";
+      ctx.shadowBlur = 3;
+
+      // Simulate processed output (modified version of input)
+      for (let i = 0; i < barCount; i++) {
+        const sampleIndex = Math.floor(
+          (i / barCount) * this.frequencyData.length
+        );
+        let amplitude = this.frequencyData[sampleIndex] || 0;
+
+        // Apply simulated processing effects
+        const selectedDSP =
+          document.querySelector('input[name="dspAlgorithm"]:checked')?.value ||
+          "bypass";
+
+        switch (selectedDSP) {
+          case "fir":
+            amplitude *= 0.8; // Slight attenuation
+            break;
+          case "iir":
+            amplitude *= 1.2; // Slight boost
+            break;
+          case "fft":
+            amplitude *= 0.8 + Math.sin(i * 0.1) * 0.3; // Frequency-dependent
+            break;
+          default: // bypass
+            break;
+        }
+
+        const barHeight = (amplitude / 255) * maxBarHeight;
+        const naturalVariation = (Math.random() - 0.5) * 0.1 * barHeight;
+        const finalHeight = Math.max(2, barHeight + naturalVariation);
+        const x = i * barWidth;
+
+        ctx.fillRect(x, centerY - finalHeight / 2, barWidth - 1, finalHeight);
+      }
+      ctx.shadowBlur = 0;
+
+      // Draw center line
+      ctx.strokeStyle = "rgba(255, 255, 255, 0.2)";
+      ctx.lineWidth = 1;
+      ctx.setLineDash([3, 3]);
+      ctx.beginPath();
+      ctx.moveTo(0, centerY);
+      ctx.lineTo(canvas.width, centerY);
+      ctx.stroke();
+      ctx.setLineDash([]);
+
+      // Output label
+      ctx.fillStyle = "#ffffff";
+      ctx.font = "10px Arial";
+      ctx.fillText("OUTPUT", 10, 15);
+    } else {
+      // Static display for output
+      const centerY = canvas.height / 2;
+      const barCount = 60;
+      const barWidth = canvas.width / barCount;
+
+      ctx.fillStyle = "rgba(200, 150, 100, 0.2)";
+      for (let i = 0; i < barCount; i++) {
+        const x = i * barWidth;
+        const variation = Math.random() * 2 - 1;
+        const barHeight = 3 + Math.abs(variation);
+        ctx.fillRect(x, centerY - barHeight / 2, barWidth - 1, barHeight);
+      }
+    }
   }
 
   // Analysis Module
@@ -2273,6 +2686,10 @@ class AdvancedAudioApp {
     this.showAlert(message, "warning");
   }
 
+  showInfo(message) {
+    this.showAlert(message, "info");
+  }
+
   showAlert(message, type = "info") {
     // Remove existing alerts
     document
@@ -2320,16 +2737,28 @@ class AdvancedAudioApp {
   // Real-time Recording Functions
   async startRealtimeRecording() {
     try {
-      // Đảm bảo real-time processing đang chạy
+      // Đảm bảo real-time processing đang chạy (required for actual recording)
       if (!this.isRealtimeActive) {
         this.showError("Please start Real-time Processing first!");
         return;
+      }
+
+      // Stop microphone test if it's running
+      const testBtn = document.getElementById("testMicrophone");
+      if (testBtn.textContent.includes("Stop Test")) {
+        await this.toggleMicrophoneTest();
       }
 
       const duration = document.getElementById("recordDuration").value;
       const filename = `realtime_record_${Date.now()}.wav`;
 
       this.showInfo("🎙️ Starting real-time recording...");
+
+      // Initialize Web Audio API for live visualization FIRST
+      await this.initMicrophoneCapture();
+
+      // Set recording active for visualization
+      this.isRecordingActive = true;
 
       const response = await fetch("/api/realtime/start_recording", {
         method: "POST",
@@ -2348,6 +2777,7 @@ class AdvancedAudioApp {
         // Update UI
         document.getElementById("startRecording").disabled = true;
         document.getElementById("stopRecording").disabled = false;
+        document.getElementById("testMicrophone").disabled = true;
 
         // Auto-stop after duration if specified
         if (duration) {
@@ -2360,12 +2790,123 @@ class AdvancedAudioApp {
       }
     } catch (error) {
       this.showError("Recording failed: " + error.message);
+      this.stopMicrophoneCapture();
+    }
+  }
+
+  async initMicrophoneCapture() {
+    try {
+      // Request microphone access
+      const stream = await navigator.mediaDevices.getUserMedia({
+        audio: {
+          echoCancellation: false, // Turn off to get raw audio
+          noiseSuppression: false, // Turn off to get full dynamic range
+          autoGainControl: false, // Turn off auto gain
+          sampleRate: 44100,
+        },
+      });
+
+      // Create audio context
+      this.audioContext = new (window.AudioContext ||
+        window.webkitAudioContext)();
+      this.analyser = this.audioContext.createAnalyser();
+
+      // Configure analyser for better sensitivity
+      this.analyser.fftSize = 4096; // Higher resolution
+      this.analyser.smoothingTimeConstant = 0.3; // Less smoothing for more responsive
+      this.analyser.minDecibels = -90; // Lower threshold
+      this.analyser.maxDecibels = -10; // Higher threshold
+
+      // Connect microphone to analyser
+      this.microphone = this.audioContext.createMediaStreamSource(stream);
+      this.microphone.connect(this.analyser);
+
+      // Store stream reference for cleanup
+      this.microphoneStream = stream;
+
+      // Initialize frequency data arrays
+      this.frequencyData = new Uint8Array(this.analyser.frequencyBinCount);
+      this.timeData = new Uint8Array(this.analyser.fftSize);
+
+      console.log("✓ Microphone capture initialized with high sensitivity");
+    } catch (error) {
+      console.error("Microphone access failed:", error);
+      throw new Error("Could not access microphone: " + error.message);
+    }
+  }
+
+  stopMicrophoneCapture() {
+    try {
+      // Stop microphone stream
+      if (this.microphoneStream) {
+        this.microphoneStream.getTracks().forEach((track) => track.stop());
+        this.microphoneStream = null;
+      }
+
+      // Disconnect audio nodes
+      if (this.microphone) {
+        this.microphone.disconnect();
+        this.microphone = null;
+      }
+
+      // Close audio context
+      if (this.audioContext && this.audioContext.state !== "closed") {
+        this.audioContext.close();
+        this.audioContext = null;
+      }
+
+      this.analyser = null;
+      this.isRecordingActive = false;
+
+      console.log("✓ Microphone capture stopped");
+    } catch (error) {
+      console.error("Error stopping microphone:", error);
+    }
+  }
+
+  async toggleMicrophoneTest() {
+    const testBtn = document.getElementById("testMicrophone");
+
+    if (this.isRecordingActive) {
+      // Stop microphone test
+      this.stopMicrophoneCapture();
+      testBtn.innerHTML = '<i class="fas fa-microphone"></i> Test Mic';
+      testBtn.classList.remove("btn-success");
+      testBtn.classList.add("btn-info-custom");
+      this.showInfo("Microphone test stopped");
+    } else {
+      // Start microphone test
+      try {
+        await this.initMicrophoneCapture();
+        this.isRecordingActive = true; // Enable visualization
+        testBtn.innerHTML = '<i class="fas fa-stop"></i> Stop Test';
+        testBtn.classList.remove("btn-info-custom");
+        testBtn.classList.add("btn-success");
+        this.showSuccess(
+          "✓ Microphone test started - You should see live waveform!"
+        );
+
+        // Auto-stop after 30 seconds
+        setTimeout(() => {
+          if (
+            this.isRecordingActive &&
+            testBtn.textContent.includes("Stop Test")
+          ) {
+            this.toggleMicrophoneTest();
+          }
+        }, 30000);
+      } catch (error) {
+        this.showError("Microphone test failed: " + error.message);
+      }
     }
   }
 
   async stopRealtimeRecording() {
     try {
       this.showInfo("⏹️ Stopping recording...");
+
+      // Stop microphone capture first
+      this.stopMicrophoneCapture();
 
       const response = await fetch("/api/realtime/stop_recording", {
         method: "POST",
@@ -2383,6 +2924,7 @@ class AdvancedAudioApp {
         // Update UI
         document.getElementById("startRecording").disabled = false;
         document.getElementById("stopRecording").disabled = true;
+        document.getElementById("testMicrophone").disabled = false;
 
         // Hiển thị thông tin file đã ghi
         this.displayRecordingResult(result);
@@ -2395,6 +2937,8 @@ class AdvancedAudioApp {
       // Reset UI on error
       document.getElementById("startRecording").disabled = false;
       document.getElementById("stopRecording").disabled = true;
+      document.getElementById("testMicrophone").disabled = false;
+      this.stopMicrophoneCapture();
     }
   }
 
@@ -2480,6 +3024,68 @@ class AdvancedAudioApp {
       this.showError("Export failed: " + error.message);
     } finally {
       this.hideProcessingStatus();
+    }
+  }
+
+  drawSignalBars() {
+    // Draw signal level bars in the stats section when real-time is active
+    if (!this.isRealtimeActive || !this.isRecordingActive) return;
+
+    const inputBar = document.getElementById("inputSignalBar");
+    const outputBar = document.getElementById("outputSignalBar");
+
+    if (!inputBar || !outputBar) return;
+
+    // Calculate signal levels from frequency data
+    if (this.frequencyData) {
+      let inputTotal = 0;
+      let outputTotal = 0;
+
+      for (let i = 0; i < this.frequencyData.length; i++) {
+        inputTotal += this.frequencyData[i];
+        // Simulate output processing
+        const processedValue =
+          this.frequencyData[i] * this.getProcessingMultiplier();
+        outputTotal += processedValue;
+      }
+
+      this.signalLevel = inputTotal / this.frequencyData.length / 255;
+      this.outputSignalLevel = outputTotal / this.frequencyData.length / 255;
+
+      // Update signal bars
+      this.updateSignalBar(inputBar, this.signalLevel, "#00ff88");
+      this.updateSignalBar(outputBar, this.outputSignalLevel, "#ff8800");
+    }
+  }
+
+  updateSignalBar(bar, level, color) {
+    const percentage = Math.min(100, Math.max(0, level * 100));
+    bar.style.width = percentage + "%";
+    bar.style.backgroundColor = color;
+    bar.style.boxShadow = `0 0 10px ${color}`;
+
+    // Add clipping indicator
+    if (percentage > 85) {
+      bar.style.backgroundColor = "#ff4444";
+      bar.style.boxShadow = "0 0 15px #ff4444";
+    }
+  }
+
+  getProcessingMultiplier() {
+    // Get current DSP algorithm and apply corresponding multiplier
+    const selectedDSP =
+      document.querySelector('input[name="dspAlgorithm"]:checked')?.value ||
+      "bypass";
+
+    switch (selectedDSP) {
+      case "fir":
+        return 0.8; // Slight attenuation
+      case "iir":
+        return 1.2; // Slight boost
+      case "fft":
+        return 0.9; // Frequency processing
+      default:
+        return 1.0; // bypass
     }
   }
 }

@@ -85,6 +85,11 @@ class MainApplication:
             """Main page"""
             return render_template('index_modular.html')
         
+        @self.app.route('/test')
+        def test_realtime():
+            """Test page for real-time audio"""
+            return render_template('test_realtime.html')
+        
         @self.app.route('/api/upload', methods=['POST'])
         def upload_file():
             """Handle file upload"""
@@ -462,6 +467,74 @@ class MainApplication:
                     'message': str(e)
                 }), 500
         
+        @self.app.route('/api/realtime/update_eq', methods=['POST'])
+        def update_realtime_eq():
+            """Update real-time EQ parameters"""
+            try:
+                data = request.get_json()
+                
+                # Extract EQ parameters
+                eq_params = {
+                    'bass': float(data.get('bass', 0)),
+                    'mid': float(data.get('mid', 0)), 
+                    'treble': float(data.get('treble', 0)),
+                    'master_gain': float(data.get('master_gain', 0)),
+                    'low_cut': bool(data.get('low_cut', False)),
+                    'high_cut': bool(data.get('high_cut', False)),
+                    'denoise': bool(data.get('denoise', False))
+                }
+                
+                # Update real-time engine with new EQ parameters
+                if self.realtime_engine.is_processing:
+                    # Convert simplified EQ to full band parameters
+                    full_eq_params = self._convert_simple_eq_to_full_bands(eq_params)
+                    self.realtime_engine.set_equalizer_params(full_eq_params)
+                    
+                    return jsonify({
+                        'success': True,
+                        'message': 'EQ parameters updated',
+                        'parameters': eq_params
+                    })
+                else:
+                    return jsonify({
+                        'success': False,
+                        'message': 'Real-time processing not active'
+                    }), 400
+                    
+            except Exception as e:
+                return jsonify({
+                    'success': False,
+                    'message': str(e)
+                }), 500
+        
+        @self.app.route('/api/realtime/update_dsp', methods=['POST'])
+        def update_realtime_dsp():
+            """Update real-time DSP algorithm"""
+            try:
+                data = request.get_json()
+                algorithm = data.get('algorithm', 'bypass')
+                
+                if self.realtime_engine.is_processing:
+                    # Update DSP algorithm in real-time engine
+                    self.realtime_engine.set_dsp_algorithm(algorithm)
+                    
+                    return jsonify({
+                        'success': True,
+                        'message': f'DSP algorithm updated to {algorithm}',
+                        'algorithm': algorithm
+                    })
+                else:
+                    return jsonify({
+                        'success': False,
+                        'message': 'Real-time processing not active'
+                    }), 400
+                    
+            except Exception as e:
+                return jsonify({
+                    'success': False,
+                    'message': str(e)
+                }), 500
+
         @self.app.route('/api/audio_devices', methods=['GET'])
         def get_audio_devices():
             """Get available audio devices"""
@@ -696,6 +769,31 @@ class MainApplication:
             print(f"⚠️ Error plotting noise reduction comparison: {e}")
             return None
     
+    def _convert_simple_eq_to_full_bands(self, simple_eq):
+        """Convert simplified 3-band EQ to full 10-band EQ parameters"""
+        # Map simplified controls to full frequency bands
+        full_bands = {
+            'sub_bass': simple_eq['bass'] * 0.8,      # 20-60Hz
+            'bass': simple_eq['bass'],                 # 60-250Hz  
+            'low_mid': simple_eq['bass'] * 0.5 + simple_eq['mid'] * 0.5,  # 250-500Hz
+            'mid': simple_eq['mid'],                   # 500-2000Hz
+            'high_mid': simple_eq['mid'] * 0.5 + simple_eq['treble'] * 0.5,  # 2-4kHz
+            'presence': simple_eq['treble'] * 0.8,    # 4-6kHz
+            'brilliance': simple_eq['treble'],        # 6-12kHz
+            'air': simple_eq['treble'] * 0.6,         # 12-16kHz
+            'ultra_high': simple_eq['treble'] * 0.4,  # 16-20kHz
+            'extreme': simple_eq['treble'] * 0.2      # 20kHz+
+        }
+        
+        # Apply master gain to all bands
+        master_gain = simple_eq.get('master_gain', 0)
+        for band in full_bands:
+            full_bands[band] += master_gain
+            # Limit to reasonable range
+            full_bands[band] = max(-12, min(12, full_bands[band]))
+        
+        return full_bands
+
     def run(self, host='0.0.0.0', port=5000, debug=False):
         """Run the application"""
         print(f"🚀 Starting Advanced Audio Processing Application")

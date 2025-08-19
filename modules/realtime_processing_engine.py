@@ -16,14 +16,14 @@ warnings.filterwarnings('ignore')
 
 class RealTimeProcessingEngine:
     def __init__(self, sample_rate: int = 22050, 
-                 chunk_size: int = 1024,
+                 chunk_size: int = 512,  # Reduced from 1024 to minimize latency
                  channels: int = 1):
         """
         Initialize Real-time Processing Engine
         
         Args:
             sample_rate: Sample rate for audio processing
-            chunk_size: Size of audio chunks for processing
+            chunk_size: Size of audio chunks for processing  
             channels: Number of audio channels
         """
         self.sample_rate = sample_rate
@@ -59,6 +59,9 @@ class RealTimeProcessingEngine:
             'noise_reduction': True,
             'genre_classification': True
         }
+        
+        # DSP algorithm setting
+        self.dsp_algorithm = 'bypass'
         
         # PyAudio instance
         self.p = None
@@ -117,6 +120,16 @@ class RealTimeProcessingEngine:
             'noise_reduction': noise_reduction,
             'genre_classification': genre_classification
         }
+    
+    def set_dsp_algorithm(self, algorithm: str = 'bypass'):
+        """
+        Set DSP algorithm for real-time processing
+        
+        Args:
+            algorithm: 'bypass', 'fir', 'iir', or 'fft'
+        """
+        self.dsp_algorithm = algorithm
+        print(f"🎛️ DSP algorithm set to: {algorithm}")
     
     def set_callbacks(self, audio_callback: Callable = None, 
                      genre_callback: Callable = None):

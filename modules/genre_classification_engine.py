@@ -433,8 +433,14 @@ class GenreClassificationEngine:
             mfcc_mean = np.mean(mfcc, axis=1)
             
             # Chroma analysis for harmonic content
-            chroma = librosa.feature.chroma(y=audio, sr=self.sample_rate)
-            chroma_std = np.std(chroma)
+            try:
+                chroma = librosa.feature.chroma_stft(y=audio, sr=self.sample_rate)
+                chroma_std = np.std(chroma)
+            except AttributeError:
+                # Fallback if chroma_stft is not available
+                print("⚠️ Chroma feature not available, using spectral centroid instead")
+                spectral_centroid = librosa.feature.spectral_centroid(y=audio, sr=self.sample_rate)
+                chroma_std = np.std(spectral_centroid) * 0.1  # Scale to match expected range
             
             # Energy analysis
             rms = np.mean(librosa.feature.rms(y=audio))
