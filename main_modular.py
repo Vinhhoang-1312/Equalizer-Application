@@ -4,24 +4,17 @@ Main Application Controller
 Điều phối tất cả các module và xử lý giao diện web
 """
 
-from flask import Flask, render_template, request, jsonify, send_file
+from flask import Flask, render_template, request, jsonify, send_file, send_from_directory, session
 from flask_socketio import SocketIO, emit
 import os
-import json
-import base64
-import io
 import numpy as np
 import librosa
 import soundfile as sf
 from werkzeug.utils import secure_filename
-import threading
 import time
 import matplotlib
 matplotlib.use('Agg')
 import matplotlib.pyplot as plt
-# import seaborn as sns  # Removed to avoid import conflicts
-import librosa.display
-from typing import Dict, List, Optional
 
 # Import our engines
 from modules.equalizer_engine import EqualizerEngine
@@ -48,7 +41,7 @@ class MainApplication:
         os.makedirs(self.app.config['RESULTS_FOLDER'], exist_ok=True)
         
         # Initialize processing engines
-        self.sample_rate = 22050
+        self.sample_rate = 44100 # 22050
         self.equalizer_engine = EqualizerEngine(sample_rate=self.sample_rate)
         self.noise_reduction_engine = NoiseReductionEngine(sample_rate=self.sample_rate)
         self.genre_classification_engine = GenreClassificationEngine(sample_rate=self.sample_rate)
@@ -130,30 +123,55 @@ class MainApplication:
             
             except Exception as e:
                 return jsonify({'error': str(e)}), 500
+
+        @self.app.route('/uploads/<path:filename>')
+        def serve_upload(filename):
+            """Serve uploaded files for the audio player."""
+            return send_from_directory(self.app.config['UPLOAD_FOLDER'], filename)
         
+        @self.app.route('/api/equalizer/visualize', methods=['POST'])
+        def visualize_equalizer():
+            try:
+                data = request.get_json()
+                gains = data.get('gains')
+                plot_options = data.get('plot_options')
+
+                if self.current_audio is None:
+                    return jsonify({'error': 'No audio file loaded'}), 400
+
+                processed_audio = self.equalizer_engine.apply_equalizer(self.current_audio, gains, filter_type='iir')
+
+                plot_paths = self.equalizer_engine.generate_comparison_plots(
+                    original_audio=self.current_audio,
+                    processed_audio=processed_audio,
+                    options=plot_options,
+                    output_dir='static/results'
+                )
+
+                return jsonify({
+                    'success': True,
+                    'plot_paths': plot_paths
+                })
+            
+            except Exception as e:
+                app.logger.error(f"Error in visualize_equalizer: {e}")
+                return jsonify({'success': False, 'error': str(e)}), 500
+
         @self.app.route('/api/equalizer/process', methods=['POST'])
         def process_equalizer():
-            """Process audio with equalizer"""
+            """Process audio with equalizer for saving."""
             try:
                 if self.current_audio is None:
                     return jsonify({'error': 'No audio file loaded'}), 400
                 
                 data = request.get_json()
-                method = data.get('method', 'fft')
-                preset = data.get('preset')
-                custom_gains = data.get('gains', {})
+                gains = data.get('gains', {})
+                filter_type = data.get('filter_type', 'iir') # Default to iir if not provided
                 
-                # Apply equalizer
-                if preset:
-                    processed_audio = self.equalizer_engine.apply_preset(
-                        self.current_audio, preset, method
-                    )
-                    gains_used = self.equalizer_engine.get_preset_gains(preset)
-                else:
-                    processed_audio = self.equalizer_engine.apply_equalizer_fft(
-                        self.current_audio, custom_gains
-                    )
-                    gains_used = custom_gains
+                # Apply equalizer using the main method
+                processed_audio = self.equalizer_engine.apply_equalizer(
+                    self.current_audio, gains, filter_type=filter_type
+                )
                 
                 # Save processed audio
                 output_path = os.path.join(
@@ -162,21 +180,11 @@ class MainApplication:
                 )
                 sf.write(output_path, processed_audio, self.sample_rate)
                 
-                # Generate frequency response plot
-                freqs, response_db = self.equalizer_engine.get_frequency_response(gains_used)
-                plot_path = self._plot_frequency_response(freqs, response_db)
-                
                 return jsonify({
                     'success': True,
                     'output_path': output_path,
-                    'gains_used': gains_used,
-                    'method': method,
-                    'preset': preset,
-                    'plot_path': plot_path,
-                    'rms_change_db': float(20 * np.log10(
-                        np.sqrt(np.mean(processed_audio**2)) / 
-                        max(np.sqrt(np.mean(self.current_audio**2)), 1e-10)
-                    ))
+                    'filter_type': filter_type,
+                    'gains_used': gains
                 })
                 
             except Exception as e:
@@ -584,6 +592,37 @@ class MainApplication:
                     return jsonify({'error': 'File not found'}), 404
             except Exception as e:
                 return jsonify({'error': str(e)}), 500
+
+        @self.app.route('/api/equalizer/download_processed_audio', methods=['POST'])
+        def download_processed_audio():
+            """Download processed audio after equalizer application."""
+            try:
+                if self.current_audio is None:
+                    return jsonify({'error': 'No audio file loaded'}), 400
+
+                data = request.get_json()
+                gains = data.get('gains', {})
+                filter_type = data.get('filter_type', 'iir')
+                download_format = data.get('format', 'wav')
+
+                processed_audio = self.equalizer_engine.apply_equalizer(
+                    self.current_audio, gains, filter_type=filter_type
+                )
+
+                timestamp = int(time.time())
+                output_filename = f'processed_eq_{timestamp}.{download_format}'
+                output_path = os.path.join(self.app.config['UPLOAD_FOLDER'], output_filename)
+
+                # Ensure the format is supported by soundfile
+                if download_format not in ['wav', 'flac', 'ogg']:
+                    return jsonify({'error': f'Unsupported download format: {download_format}'}), 400
+
+                sf.write(output_path, processed_audio, self.sample_rate, format=download_format.upper())
+
+                return send_file(output_path, as_attachment=True, download_name=output_filename)
+
+            except Exception as e:
+                return jsonify({'error': str(e)}), 500
         
         @self.app.route('/api/genre_classification/info', methods=['GET'])
         def get_genre_classification_info():
@@ -700,74 +739,7 @@ class MainApplication:
         except Exception as e:
             print(f"⚠️ Genre callback error: {e}")
     
-    def _plot_frequency_response(self, freqs, response_db):
-        """Generate frequency response plot"""
-        try:
-            plt.figure(figsize=(12, 6))
-            plt.semilogx(freqs, response_db, 'b-', linewidth=2)
-            plt.grid(True, alpha=0.3)
-            plt.xlabel('Frequency (Hz)')
-            plt.ylabel('Gain (dB)')
-            plt.title('Equalizer Frequency Response')
-            plt.xlim([20, 20000])
-            plt.ylim([-25, 25])
-            
-            # Mark frequency bands
-            for band_name, freq in self.equalizer_engine.frequency_bands.items():
-                plt.axvline(x=freq, color='r', linestyle='--', alpha=0.5)
-                plt.text(freq, 20, band_name, rotation=90, ha='right', va='bottom', fontsize=8)
-            
-            plot_path = os.path.join(self.app.config['RESULTS_FOLDER'], 'freq_response.png')
-            plt.savefig(plot_path, dpi=150, bbox_inches='tight')
-            plt.close()
-            
-            return plot_path
-            
-        except Exception as e:
-            print(f"⚠️ Error plotting frequency response: {e}")
-            return None
     
-    def _plot_noise_reduction_comparison(self, original_audio, processed_audio):
-        """Generate noise reduction comparison plot"""
-        try:
-            fig, axes = plt.subplots(2, 2, figsize=(15, 10))
-            
-            # Original waveform
-            time_axis = np.linspace(0, len(original_audio)/self.sample_rate, len(original_audio))
-            axes[0, 0].plot(time_axis, original_audio)
-            axes[0, 0].set_title('Original Audio Waveform')
-            axes[0, 0].set_xlabel('Time (s)')
-            axes[0, 0].set_ylabel('Amplitude')
-            
-            # Processed waveform
-            axes[0, 1].plot(time_axis[:len(processed_audio)], processed_audio)
-            axes[0, 1].set_title('Processed Audio Waveform')
-            axes[0, 1].set_xlabel('Time (s)')
-            axes[0, 1].set_ylabel('Amplitude')
-            
-            # Original spectrogram
-            D_orig = librosa.amplitude_to_db(np.abs(librosa.stft(original_audio)))
-            librosa.display.specshow(D_orig, y_axis='hz', x_axis='time', 
-                                   sr=self.sample_rate, ax=axes[1, 0])
-            axes[1, 0].set_title('Original Spectrogram')
-            
-            # Processed spectrogram
-            D_proc = librosa.amplitude_to_db(np.abs(librosa.stft(processed_audio)))
-            librosa.display.specshow(D_proc, y_axis='hz', x_axis='time', 
-                                   sr=self.sample_rate, ax=axes[1, 1])
-            axes[1, 1].set_title('Processed Spectrogram')
-            
-            plt.tight_layout()
-            
-            plot_path = os.path.join(self.app.config['RESULTS_FOLDER'], 'noise_reduction_comparison.png')
-            plt.savefig(plot_path, dpi=150, bbox_inches='tight')
-            plt.close()
-            
-            return plot_path
-            
-        except Exception as e:
-            print(f"⚠️ Error plotting noise reduction comparison: {e}")
-            return None
     
     def _convert_simple_eq_to_full_bands(self, simple_eq):
         """Convert simplified 3-band EQ to full 10-band EQ parameters"""

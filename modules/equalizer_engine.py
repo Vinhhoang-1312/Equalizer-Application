@@ -5,383 +5,254 @@ Bộ cân bằng âm 10 băng tần với các dải tần số cụ thể và p
 """
 
 import numpy as np
+from scipy.signal import butter, sosfilt, firwin, lfilter
+from typing import Dict, List, Tuple
+import matplotlib
+matplotlib.use('Agg') # Use non-interactive backend
+import matplotlib.pyplot as plt
 import librosa
-import soundfile as sf
-from scipy.signal import butter, filtfilt, find_peaks
-from typing import Dict, List, Tuple, Optional
-import json
+import librosa.display
+import time
 import os
 
 class EqualizerEngine:
     def __init__(self, sample_rate: int = 22050):
         """
-        Initialize Equalizer Engine
+        Initialize Equalizer Engine.
         
         Args:
-            sample_rate: Sample rate for audio processing
+            sample_rate: Sample rate for audio processing.
         """
         self.sample_rate = sample_rate
         
         # 10-band equalizer frequency bands (Hz)
         self.frequency_bands = {
-            'sub_bass': 60,      # 60Hz
-            'bass': 170,         # 170Hz  
-            'low_mid': 310,      # 310Hz
-            'mid': 600,          # 600Hz
-            'high_mid': 1000,    # 1kHz
-            'presence': 3000,    # 3kHz
-            'brilliance': 6000,  # 6kHz
-            'air': 12000,        # 12kHz
-            'ultra_high': 14000, # 14kHz
-            'extreme': 16000     # 16kHz
+            'band_31_hz': 31,
+            'band_62_hz': 62,
+            'band_125_hz': 125,
+            'band_250_hz': 250,
+            'band_500_hz': 500,
+            'band_1k_hz': 1000,
+            'band_2k_hz': 2000,
+            'band_4k_hz': 4000,
+            'band_8k_hz': 8000,
+            'band_16k_hz': 16000
         }
         
-        # Load presets
         self.presets = self._load_presets()
-    
+
     def _load_presets(self) -> Dict[str, Dict[str, float]]:
-        """Load equalizer presets"""
-        presets = {
-            'flat': {
-                'sub_bass': 0.0, 'bass': 0.0, 'low_mid': 0.0, 'mid': 0.0,
-                'high_mid': 0.0, 'presence': 0.0, 'brilliance': 0.0, 
-                'air': 0.0, 'ultra_high': 0.0, 'extreme': 0.0
-            },
-            'rock': {
-                'sub_bass': 5.0, 'bass': 3.0, 'low_mid': -2.0, 'mid': 0.0,
-                'high_mid': 2.0, 'presence': 4.0, 'brilliance': 6.0, 
-                'air': 3.0, 'ultra_high': 2.0, 'extreme': 1.0
-            },
-            'pop': {
-                'sub_bass': 2.0, 'bass': 1.0, 'low_mid': 0.0, 'mid': 1.0,
-                'high_mid': 2.0, 'presence': 3.0, 'brilliance': 4.0, 
-                'air': 3.0, 'ultra_high': 2.0, 'extreme': 1.0
-            },
-            'classical': {
-                'sub_bass': 0.0, 'bass': 0.0, 'low_mid': 0.0, 'mid': 0.0,
-                'high_mid': 0.0, 'presence': 1.0, 'brilliance': 2.0, 
-                'air': 3.0, 'ultra_high': 2.0, 'extreme': 1.0
-            },
-            'jazz': {
-                'sub_bass': 1.0, 'bass': 2.0, 'low_mid': 1.0, 'mid': 1.0,
-                'high_mid': 0.0, 'presence': 1.0, 'brilliance': 2.0, 
-                'air': 2.0, 'ultra_high': 1.0, 'extreme': 0.0
-            },
-            'bass_boost': {
-                'sub_bass': 8.0, 'bass': 6.0, 'low_mid': 4.0, 'mid': 2.0,
-                'high_mid': 0.0, 'presence': -1.0, 'brilliance': -1.0, 
-                'air': 0.0, 'ultra_high': 0.0, 'extreme': 0.0
-            },
-            'vocal': {
-                'sub_bass': -2.0, 'bass': -1.0, 'low_mid': 1.0, 'mid': 3.0,
-                'high_mid': 4.0, 'presence': 5.0, 'brilliance': 3.0, 
-                'air': 2.0, 'ultra_high': 1.0, 'extreme': 0.0
-            },
-            'dance': {
-                'sub_bass': 6.0, 'bass': 4.0, 'low_mid': 1.0, 'mid': 0.0,
-                'high_mid': 1.0, 'presence': 2.0, 'brilliance': 4.0, 
-                'air': 4.0, 'ultra_high': 3.0, 'extreme': 2.0
-            }
+        """Load equalizer presets for the 10 bands."""
+        return {
+            'flat': {band: 0.0 for band in self.frequency_bands},
+            'rock': {'band_31_hz': 4, 'band_62_hz': 2, 'band_125_hz': 1, 'band_250_hz': -2, 'band_500_hz': -3, 'band_1k_hz': -1, 'band_2k_hz': 2, 'band_4k_hz': 5, 'band_8k_hz': 6, 'band_16k_hz': 7},
+            'pop': {'band_31_hz': -1, 'band_62_hz': 2, 'band_125_hz': 4, 'band_250_hz': 5, 'band_500_hz': 2, 'band_1k_hz': -1, 'band_2k_hz': -2, 'band_4k_hz': -1, 'band_8k_hz': 1, 'band_16k_hz': 2},
+            'classical': {'band_31_hz': 0, 'band_62_hz': 0, 'band_125_hz': 0, 'band_250_hz': 0, 'band_500_hz': 0, 'band_1k_hz': 0, 'band_2k_hz': 0, 'band_4k_hz': 0, 'band_8k_hz': 5, 'band_16k_hz': 5},
+            'jazz': {'band_31_hz': 0, 'band_62_hz': 2, 'band_125_hz': 2, 'band_250_hz': -2, 'band_500_hz': -2, 'band_1k_hz': 0, 'band_2k_hz': 3, 'band_4k_hz': 2, 'band_8k_hz': 2, 'band_16k_hz': 1},
+            'bass_boost': {'band_31_hz': 9, 'band_62_hz': 7, 'band_125_hz': 5, 'band_250_hz': 3, 'band_500_hz': 1, 'band_1k_hz': 0, 'band_2k_hz': 0, 'band_4k_hz': 0, 'band_8k_hz': 0, 'band_16k_hz': 0},
+            'treble_boost': {'band_31_hz': 0, 'band_62_hz': 0, 'band_125_hz': 0, 'band_250_hz': 0, 'band_500_hz': 0, 'band_1k_hz': 1, 'band_2k_hz': 3, 'band_4k_hz': 5, 'band_8k_hz': 7, 'band_16k_hz': 9},
+            'vocal_boost': {'band_31_hz': -3, 'band_62_hz': -3, 'band_125_hz': -3, 'band_250_hz': 0, 'band_500_hz': 3, 'band_1k_hz': 5, 'band_2k_hz': 3, 'band_4k_hz': 0, 'band_8k_hz': -2, 'band_16k_hz': -3},
+            'electronic': {'band_31_hz': 6, 'band_62_hz': 4, 'band_125_hz': 2, 'band_250_hz': 0, 'band_500_hz': -2, 'band_1k_hz': 0, 'band_2k_hz': 2, 'band_4k_hz': 4, 'band_8k_hz': 6, 'band_16k_hz': 8}
         }
-        return presets
-    
-    def db_to_linear(self, db_gain: float) -> float:
-        """Convert dB gain to linear gain"""
-        return 10.0 ** (db_gain / 20.0)
-    
-    def linear_to_db(self, linear_gain: float) -> float:
-        """Convert linear gain to dB gain"""
-        return 20.0 * np.log10(max(linear_gain, 1e-10))
-    
-    def create_frequency_response(self, audio_length: int, gains: Dict[str, float]) -> np.ndarray:
-        """
-        Create frequency response curve for equalizer
-        
-        Args:
-            audio_length: Length of audio signal
-            gains: Dictionary of frequency band gains in dB
-            
-        Returns:
-            Complex frequency response array
-        """
-        freqs = np.fft.fftfreq(audio_length, 1/self.sample_rate)
-        freq_response = np.ones_like(freqs, dtype=complex)
-        
-        # Apply gains for each frequency band
-        for band_name, center_freq in self.frequency_bands.items():
-            if band_name in gains:
-                gain_db = gains[band_name]
-                gain_linear = self.db_to_linear(gain_db)
-                
-                # Define bandwidth based on frequency
-                if center_freq <= 100:
-                    bandwidth = center_freq * 1.5
-                elif center_freq <= 1000:
-                    bandwidth = center_freq * 0.8
-                else:
-                    bandwidth = center_freq * 0.6
-                
-                # Create bell filter response
-                freq_mask = (np.abs(freqs) >= center_freq - bandwidth/2) & \
-                           (np.abs(freqs) <= center_freq + bandwidth/2)
-                
-                # Apply smooth transition using Gaussian-like curve
-                for i, freq in enumerate(freqs):
-                    if freq_mask[i]:
-                        distance = abs(abs(freq) - center_freq)
-                        weight = np.exp(-2 * (distance / bandwidth) ** 2)
-                        freq_response[i] *= (1 + (gain_linear - 1) * weight)
-        
-        return freq_response
-    
-    def apply_equalizer_fft(self, audio: np.ndarray, gains: Dict[str, float]) -> np.ndarray:
-        """
-        Apply equalizer using FFT method
-        
-        Args:
-            audio: Input audio signal
-            gains: Dictionary of frequency band gains in dB (-20 to +20)
-            
-        Returns:
-            Processed audio signal
-        """
-        if len(audio) == 0:
-            return audio
-        
-        # Apply FFT
-        fft_audio = np.fft.fft(audio)
-        
-        # Create frequency response
-        freq_response = self.create_frequency_response(len(audio), gains)
-        
-        # Apply frequency response
-        processed_fft = fft_audio * freq_response
-        
-        # Convert back to time domain
-        processed_audio = np.real(np.fft.ifft(processed_fft))
-        
-        # Normalize to prevent clipping
-        max_val = np.max(np.abs(processed_audio))
-        if max_val > 1.0:
-            processed_audio = processed_audio / max_val * 0.95
-            
-        return processed_audio.astype(np.float32)
-    
-    def apply_equalizer_filter(self, audio: np.ndarray, gains: Dict[str, float]) -> np.ndarray:
-        """
-        Apply equalizer using cascaded IIR filters (more CPU intensive but higher quality)
-        
-        Args:
-            audio: Input audio signal
-            gains: Dictionary of frequency band gains in dB
-            
-        Returns:
-            Processed audio signal
-        """
-        processed_audio = audio.copy()
-        
-        for band_name, center_freq in self.frequency_bands.items():
-            if band_name in gains and gains[band_name] != 0.0:
-                gain_db = gains[band_name]
-                gain_linear = self.db_to_linear(gain_db)
-                
-                # Calculate Q factor based on frequency
-                if center_freq <= 100:
-                    Q = 0.7
-                elif center_freq <= 1000:
-                    Q = 1.0
-                else:
-                    Q = 1.2
-                
-                # Design peaking filter
-                processed_audio = self._apply_peaking_filter(
-                    processed_audio, center_freq, Q, gain_linear
-                )
-        
-        # Normalize to prevent clipping
-        max_val = np.max(np.abs(processed_audio))
-        if max_val > 1.0:
-            processed_audio = processed_audio / max_val * 0.95
-            
-        return processed_audio.astype(np.float32)
-    
-    def _apply_peaking_filter(self, audio: np.ndarray, center_freq: float, 
-                             Q: float, gain: float) -> np.ndarray:
-        """Apply peaking filter for specific frequency band"""
-        nyquist = self.sample_rate / 2
+
+    def _create_peaking_filter(self, center_freq: float, gain_db: float, q_factor: float = 1.41):
+        """Creates a peaking (bell) filter for a given frequency band."""
         w0 = 2 * np.pi * center_freq / self.sample_rate
+        A = 10**(gain_db / 40.0)
+        alpha = np.sin(w0) / (2 * q_factor)
+
+        b0 = 1 + alpha * A
+        b1 = -2 * np.cos(w0)
+        b2 = 1 - alpha * A
+        a0 = 1 + alpha / A
+        a1 = -2 * np.cos(w0)
+        a2 = 1 - alpha / A
         
-        if gain > 1.0:  # Boost
-            A = np.sqrt(gain)
-            alpha = np.sin(w0) / (2 * Q)
-            
-            b0 = 1 + alpha * A
-            b1 = -2 * np.cos(w0)
-            b2 = 1 - alpha * A
-            a0 = 1 + alpha / A
-            a1 = -2 * np.cos(w0)
-            a2 = 1 - alpha / A
-        elif gain < 1.0:  # Cut
-            A = np.sqrt(1/gain)
-            alpha = np.sin(w0) / (2 * Q)
-            
-            b0 = 1 + alpha / A
-            b1 = -2 * np.cos(w0)
-            b2 = 1 - alpha / A
-            a0 = 1 + alpha * A
-            a1 = -2 * np.cos(w0)
-            a2 = 1 - alpha * A
-        else:  # No change
-            return audio
-        
-        # Normalize coefficients
-        b = np.array([b0, b1, b2]) / a0
-        a = np.array([1.0, a1/a0, a2/a0])
-        
-        # Apply filter
-        return filtfilt(b, a, audio)
-    
-    def apply_preset(self, audio: np.ndarray, preset_name: str, 
-                    method: str = 'fft') -> np.ndarray:
+        # Return SOS (Second-Order Sections) format for stability
+        return np.array([[b0/a0, b1/a0, b2/a0, 1, a1/a0, a2/a0]])
+
+    def _create_fir_filter(self, band_name: str, center_freq: float, gain_db: float, num_taps: int = 101):
         """
-        Apply equalizer preset to audio
+        Creates an FIR filter (low-pass, band-pass, or high-pass) for a given frequency band.
+        Gain is applied by scaling the filter coefficients.
+        """
+        nyquist = 0.5 * self.sample_rate
+        freqs = list(self.frequency_bands.values())
+        freq_idx = freqs.index(center_freq)
+        
+        linear_gain = 10**(gain_db / 20.0) # Convert dB to linear gain
+
+        if band_name == 'band_31_hz': # Lowest band: Low-pass
+            cutoff_freq = np.sqrt(freqs[freq_idx] * freqs[freq_idx + 1]) / nyquist
+            fir_coeffs = firwin(num_taps, cutoff_freq, pass_zero=True)
+        elif band_name == 'band_16k_hz': # Highest band: High-pass
+            cutoff_freq = np.sqrt(freqs[freq_idx - 1] * freqs[freq_idx]) / nyquist
+            fir_coeffs = firwin(num_taps, cutoff_freq, pass_zero=False)
+        else: # Middle bands: Band-pass
+            low_cutoff = np.sqrt(freqs[freq_idx - 1] * freqs[freq_idx]) / nyquist
+            high_cutoff = np.sqrt(freqs[freq_idx] * freqs[freq_idx + 1]) / nyquist
+            fir_coeffs = firwin(num_taps, [low_cutoff, high_cutoff], pass_zero=False)
+        
+        return fir_coeffs * linear_gain # Apply gain by scaling coefficients
+
+    def apply_equalizer(self, audio: np.ndarray, gains: Dict[str, float], filter_type: str = 'iir') -> np.ndarray:
+        """
+        Apply equalizer using a cascade of IIR peaking filters or FIR filters.
         
         Args:
-            audio: Input audio signal
-            preset_name: Name of preset to apply
-            method: 'fft' or 'filter' processing method
+            audio: Input audio signal.
+            gains: Dictionary of frequency band gains in dB.
+            filter_type: Type of filter to apply ('iir' for peaking, 'fir' for FIR).
             
         Returns:
-            Processed audio signal
+            Processed audio signal.
+        """
+        if not isinstance(audio, np.ndarray):
+            raise TypeError("Input audio must be a numpy array.")
+            
+        processed_audio = audio.copy()
+
+        if filter_type == 'iir':
+            for band_name, center_freq in self.frequency_bands.items():
+                gain_db = gains.get(band_name, 0.0)
+                if gain_db != 0.0:
+                    sos_filter = self._create_peaking_filter(center_freq, gain_db)
+                    processed_audio = sosfilt(sos_filter, processed_audio)
+        elif filter_type == 'fir':
+            # For FIR, we create a composite filter by summing the individual band filters
+            num_taps = 101
+            composite_fir_coeffs = np.zeros(num_taps)
+            for band_name, center_freq in self.frequency_bands.items():
+                gain_db = gains.get(band_name, 0.0)
+                fir_coeffs = self._create_fir_filter(band_name, center_freq, gain_db)
+                composite_fir_coeffs += fir_coeffs
+            processed_audio = lfilter(composite_fir_coeffs, 1.0, processed_audio)
+        else:
+            raise ValueError("Invalid filter_type. Must be 'iir' or 'fir'.")
+        
+        # Normalize to prevent clipping
+        max_val = np.max(np.abs(processed_audio))
+        if max_val > 1.0:
+            processed_audio /= max_val
+            
+        return processed_audio.astype(np.float32)
+
+    def generate_comparison_plots(self, original_audio: np.ndarray, processed_audio: np.ndarray, options: Dict[str, bool], output_dir: str) -> Dict[str, str]:
+        """
+        Generate comparison plots (waveform and spectrogram) for original vs. processed audio.
+
+        Args:
+            original_audio: The original audio signal.
+            processed_audio: The processed audio signal.
+            options: A dictionary indicating which plots to generate. e.g., {'displayWaveformPlot': True, 'displaySpectrogramPlot': True}
+            output_dir: The directory to save the plot images.
+
+        Returns:
+            A dictionary containing the paths to the generated plots.
+        """
+        plot_paths = {}
+        timestamp = int(time.time())
+        
+        os.makedirs(output_dir, exist_ok=True)
+
+        if options.get('displayWaveformPlot'):
+            plt.figure(figsize=(12, 6))
+            ax1 = plt.subplot(2, 1, 1)
+            librosa.display.waveshow(original_audio, sr=self.sample_rate, alpha=0.8)
+            plt.title('Original Waveform')
+            plt.xlabel(None)
+            plt.ylabel('Amplitude')
+            
+            plt.subplot(2, 1, 2, sharex=ax1, sharey=ax1)
+            librosa.display.waveshow(processed_audio, sr=self.sample_rate, alpha=0.8, color='r')
+            plt.title('Processed Waveform')
+            plt.xlabel('Time (s)')
+            plt.ylabel('Amplitude')
+            
+            plt.tight_layout()
+            path = os.path.join(output_dir, f"eq_waveform_{timestamp}.png")
+            plt.savefig(path)
+            plt.close()
+            plot_paths['waveform'] = path.replace(os.path.sep, '/')
+
+        if options.get('displaySpectrogramPlot'):
+            plt.figure(figsize=(12, 8))
+            
+            D_original = librosa.stft(original_audio)
+            S_db_original = librosa.amplitude_to_db(np.abs(D_original), ref=np.max)
+            ax1 = plt.subplot(2, 1, 1)
+            img = librosa.display.specshow(S_db_original, sr=self.sample_rate, x_axis='time', y_axis='log', ax=ax1)
+            fig = plt.gcf()
+            fig.colorbar(img, ax=ax1, format='%+2.0f dB')
+            plt.title('Original Spectrogram')
+            
+            D_processed = librosa.stft(processed_audio)
+            S_db_processed = librosa.amplitude_to_db(np.abs(D_processed), ref=np.max)
+            ax2 = plt.subplot(2, 1, 2, sharex=ax1, sharey=ax1)
+            img2 = librosa.display.specshow(S_db_processed, sr=self.sample_rate, x_axis='time', y_axis='log', ax=ax2)
+            fig.colorbar(img2, ax=ax2, format='%+2.0f dB')
+            plt.title('Processed Spectrogram')
+            
+            plt.tight_layout()
+            path = os.path.join(output_dir, f"eq_spectrogram_{timestamp}.png")
+            plt.savefig(path)
+            plt.close()
+            plot_paths['spectrogram'] = path.replace(os.path.sep, '/')
+            
+        return plot_paths
+
+    def apply_preset(self, audio: np.ndarray, preset_name: str, filter_type: str = 'iir') -> np.ndarray:
+        """
+        Apply an equalizer preset to the audio.
+        
+        Args:
+            audio: Input audio signal.
+            preset_name: Name of the preset to apply.
+            filter_type: Type of filter to apply ('iir' for peaking, 'fir' for FIR).
+            
+        Returns:
+            Processed audio signal.
         """
         if preset_name not in self.presets:
             raise ValueError(f"Unknown preset: {preset_name}")
         
         gains = self.presets[preset_name]
-        
-        if method == 'fft':
-            return self.apply_equalizer_fft(audio, gains)
-        elif method == 'filter':
-            return self.apply_equalizer_filter(audio, gains)
-        else:
-            raise ValueError(f"Unknown method: {method}")
-    
-    def process_audio_file(self, input_path: str, output_path: str,
-                          gains: Dict[str, float] = None, 
-                          preset_name: str = None,
-                          method: str = 'fft') -> Dict:
+        return self.apply_equalizer(audio, gains, filter_type)
+
+    def get_frequency_response(self, gains: Dict[str, float], num_points: int = 4096) -> Tuple[np.ndarray, np.ndarray]:
         """
-        Process audio file with equalizer
+        Calculate the frequency response of the current EQ settings.
+        NOTE: This method currently only supports IIR (peaking) filters.
         
         Args:
-            input_path: Path to input audio file
-            output_path: Path to save processed audio
-            gains: Custom equalizer gains (dB)
-            preset_name: Name of preset to use
-            method: Processing method ('fft' or 'filter')
+            gains: Equalizer gains in dB.
+            num_points: Number of frequency points to calculate.
             
         Returns:
-            Dictionary with processing results
+            Tuple of (frequencies, response_in_db).
         """
-        # Load audio
-        audio, sr = librosa.load(input_path, sr=self.sample_rate)
-        original_rms = np.sqrt(np.mean(audio ** 2))
+        from scipy.signal import sosfreqz
         
-        # Apply equalizer
-        if preset_name:
-            processed_audio = self.apply_preset(audio, preset_name, method)
-            used_gains = self.presets[preset_name]
-        elif gains:
-            if method == 'fft':
-                processed_audio = self.apply_equalizer_fft(audio, gains)
-            else:
-                processed_audio = self.apply_equalizer_filter(audio, gains)
-            used_gains = gains
-        else:
-            processed_audio = audio  # No processing
-            used_gains = self.presets['flat']
-        
-        processed_rms = np.sqrt(np.mean(processed_audio ** 2))
-        
-        # Save processed audio
-        sf.write(output_path, processed_audio, self.sample_rate)
-        
-        return {
-            'input_path': input_path,
-            'output_path': output_path,
-            'original_rms': float(original_rms),
-            'processed_rms': float(processed_rms),
-            'gain_change_db': float(self.linear_to_db(processed_rms / max(original_rms, 1e-10))),
-            'equalizer_gains': used_gains,
-            'method': method,
-            'preset_used': preset_name if preset_name else 'custom',
-            'sample_rate': self.sample_rate,
-            'duration': len(processed_audio) / self.sample_rate
-        }
-    
-    def get_frequency_response(self, gains: Dict[str, float], 
-                              num_points: int = 1000) -> Tuple[np.ndarray, np.ndarray]:
-        """
-        Calculate frequency response curve for visualization
-        
-        Args:
-            gains: Equalizer gains in dB
-            num_points: Number of frequency points to calculate
-            
-        Returns:
-            Tuple of (frequencies, response_db)
-        """
-        # Create frequency array (log scale)
-        freqs = np.logspace(1, np.log10(self.sample_rate/2), num_points)
-        response = np.ones_like(freqs)
+        total_response = np.ones(num_points, dtype=np.complex128)
         
         for band_name, center_freq in self.frequency_bands.items():
-            if band_name in gains:
-                gain_db = gains[band_name]
-                gain_linear = self.db_to_linear(gain_db)
-                
-                # Define bandwidth
-                if center_freq <= 100:
-                    bandwidth = center_freq * 1.5
-                elif center_freq <= 1000:
-                    bandwidth = center_freq * 0.8
-                else:
-                    bandwidth = center_freq * 0.6
-                
-                # Apply bell filter response
-                for i, freq in enumerate(freqs):
-                    distance = abs(freq - center_freq)
-                    if distance <= bandwidth:
-                        weight = np.exp(-2 * (distance / bandwidth) ** 2)
-                        response[i] *= (1 + (gain_linear - 1) * weight)
+            gain_db = gains.get(band_name, 0.0)
+            if gain_db != 0.0:
+                sos_filter = self._create_peaking_filter(center_freq, gain_db)
+                w, h = sosfreqz(sos_filter, worN=num_points, fs=self.sample_rate)
+                total_response *= h
+
+        freqs = w
+        response_db = 20 * np.log10(np.abs(total_response) + 1e-9)
         
-        response_db = self.linear_to_db(response)
         return freqs, response_db
-    
+
     def get_available_presets(self) -> List[str]:
-        """Get list of available preset names"""
+        """Get a list of available preset names."""
         return list(self.presets.keys())
-    
+
     def get_preset_gains(self, preset_name: str) -> Dict[str, float]:
-        """Get gains for a specific preset"""
+        """Get the gain values for a specific preset."""
         if preset_name not in self.presets:
             raise ValueError(f"Unknown preset: {preset_name}")
         return self.presets[preset_name].copy()
-    
-    def save_custom_preset(self, name: str, gains: Dict[str, float]) -> bool:
-        """Save custom preset to file"""
-        try:
-            # Add to current presets
-            self.presets[name] = gains.copy()
-            
-            # Save to file (if desired)
-            presets_file = os.path.join(os.path.dirname(__file__), '..', 'data', 'custom_presets.json')
-            os.makedirs(os.path.dirname(presets_file), exist_ok=True)
-            
-            with open(presets_file, 'w') as f:
-                json.dump(self.presets, f, indent=2)
-            
-            return True
-        except Exception as e:
-            print(f"Error saving preset: {e}")
-            return False
