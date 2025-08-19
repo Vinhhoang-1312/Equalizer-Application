@@ -1,103 +1,222 @@
 <!DOCTYPE html>
 <html lang="en">
-  <head>
-    <meta charset="UTF-8" />
-    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
-    <title>Advanced Audio Processing - Modular Interface</title>
-    <link
-      href="https://cdn.jsdelivr.net/npm/bootstrap@5.1.3/dist/css/bootstrap.min.css"
-      rel="stylesheet"
-    />
-    <link
-      href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.0.0/css/all.min.css"
-      rel="stylesheet"
-    />
-    <script src="https://cdn.socket.io/4.0.0/socket.io.min.js"></script>
-    <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
-    <!-- WaveSurfer.js - Best Audio Visualization Library -->
-    <script src="https://unpkg.com/wavesurfer.js@7"></script>
-    <style>
-      :root {
-        --primary-gradient: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
-        --secondary-gradient: linear-gradient(135deg, #f093fb 0%, #f5576c 100%);
-        --success-gradient: linear-gradient(135deg, #4facfe 0%, #00f2fe 100%);
-        --warning-gradient: linear-gradient(135deg, #fa709a 0%, #fee140 100%);
+
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>Advanced Audio Processing - Modular Interface</title>
+  <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.1.3/dist/css/bootstrap.min.css" rel="stylesheet" />
+  <link href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.0.0/css/all.min.css" rel="stylesheet" />
+  <script src="https://cdn.socket.io/4.0.0/socket.io.min.js"></script>
+  <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
+  <style>
+    :root {
+      --primary-gradient: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+      --secondary-gradient: linear-gradient(135deg, #f093fb 0%, #f5576c 100%);
+      --success-gradient: linear-gradient(135deg, #4facfe 0%, #00f2fe 100%);
+      --warning-gradient: linear-gradient(135deg, #fa709a 0%, #fee140 100%);
+    }
+
+    body {
+      background: var(--primary-gradient);
+      min-height: 100vh;
+      font-family: "Segoe UI", Tahoma, Geneva, Verdana, sans-serif;
+    }
+
+    .main-container {
+      background: rgba(255, 255, 255, 0.95);
+      border-radius: 20px;
+      box-shadow: 0 20px 40px rgba(0, 0, 0, 0.1);
+      margin: 20px;
+      min-height: calc(100vh - 40px);
+    }
+
+    .nav-pills .nav-link {
+      border-radius: 15px;
+      margin: 5px;
+      padding: 12px 20px;
+      background: rgba(102, 126, 234, 0.1);
+      color: #667eea;
+      border: 2px solid transparent;
+      font-weight: 600;
+      transition: all 0.3s ease;
+    }
+
+    .nav-pills .nav-link:hover {
+      background: rgba(102, 126, 234, 0.2);
+      transform: translateY(-2px);
+    }
+
+    .nav-pills .nav-link.active {
+      background: var(--primary-gradient);
+      color: white;
+      border-color: #667eea;
+      box-shadow: 0 8px 20px rgba(102, 126, 234, 0.3);
+    }
+
+    .module-card {
+      background: white;
+      border-radius: 15px;
+      padding: 25px;
+      margin: 15px 0;
+      box-shadow: 0 10px 30px rgba(0, 0, 0, 0.1);
+      border: 1px solid rgba(0, 0, 0, 0.05);
+    }
+
+    .btn-custom {
+      background: var(--primary-gradient);
+      border: none;
+      border-radius: 25px;
+      padding: 12px 30px;
+      color: white;
+      font-weight: 600;
+      transition: all 0.3s ease;
+    }
+
+    .btn-custom:hover {
+      transform: translateY(-2px);
+      box-shadow: 0 10px 20px rgba(0, 0, 0, 0.2);
+      color: white;
+    }
+
+    .btn-success-custom {
+      background: var(--success-gradient);
+    }
+
+    .btn-warning-custom {
+      background: var(--warning-gradient);
+    }
+
+    .btn-danger-custom {
+      background: var(--secondary-gradient);
+    }
+
+    .slider-container {
+      margin: 15px 0;
+    }
+
+    .slider-label {
+      font-weight: 600;
+      margin-bottom: 8px;
+      display: flex;
+      justify-content: space-between;
+    }
+
+    .custom-range {
+      height: 8px;
+      border-radius: 4px;
+    }
+
+    .custom-range::-webkit-slider-thumb {
+      background: var(--primary-gradient);
+      border: none;
+      width: 20px;
+      height: 20px;
+      border-radius: 50%;
+    }
+
+    .status-indicator {
+      display: inline-block;
+      width: 12px;
+      height: 12px;
+      border-radius: 50%;
+      margin-right: 8px;
+    }
+
+    .status-active {
+      background: #28a745;
+    }
+
+    .status-inactive {
+      background: #dc3545;
+    }
+
+    .status-processing {
+      background: #ffc107;
+      animation: pulse 1s infinite;
+    }
+
+    @keyframes pulse {
+      0% {
+        opacity: 1;
       }
 
-      body {
-        background: var(--primary-gradient);
-        min-height: 100vh;
-        font-family: "Segoe UI", Tahoma, Geneva, Verdana, sans-serif;
+      50% {
+        opacity: 0.5;
       }
 
-      .main-container {
-        background: rgba(255, 255, 255, 0.95);
-        border-radius: 20px;
-        box-shadow: 0 20px 40px rgba(0, 0, 0, 0.1);
-        margin: 20px;
-        min-height: calc(100vh - 40px);
+      100% {
+        opacity: 1;
       }
+    }
 
-      .nav-pills .nav-link {
-        border-radius: 15px;
-        margin: 5px;
-        padding: 12px 20px;
-        background: rgba(102, 126, 234, 0.1);
-        color: #667eea;
-        border: 2px solid transparent;
-        font-weight: 600;
-        transition: all 0.3s ease;
-      }
+    .upload-area {
+      border: 3px dashed #667eea;
+      border-radius: 15px;
+      padding: 40px;
+      text-align: center;
+      background: rgba(102, 126, 234, 0.05);
+      transition: all 0.3s ease;
+      cursor: pointer;
+    }
 
-      .nav-pills .nav-link:hover {
-        background: rgba(102, 126, 234, 0.2);
-        transform: translateY(-2px);
-      }
+    .upload-area:hover,
+    .upload-area.dragover {
+      border-color: #764ba2;
+      background: rgba(118, 75, 162, 0.1);
+    }
 
-      .nav-pills .nav-link.active {
-        background: var(--primary-gradient);
-        color: white;
-        border-color: #667eea;
-        box-shadow: 0 8px 20px rgba(102, 126, 234, 0.3);
-      }
+    .result-card {
+      background: var(--secondary-gradient);
+      color: white;
+      border-radius: 15px;
+      padding: 20px;
+      margin: 15px 0;
+    }
 
-      .module-card {
-        background: white;
-        border-radius: 15px;
-        padding: 25px;
-        margin: 15px 0;
-        box-shadow: 0 10px 30px rgba(0, 0, 0, 0.1);
-        border: 1px solid rgba(0, 0, 0, 0.05);
-      }
+    .frequency-display {
+      font-family: monospace;
+      font-size: 0.9em;
+      color: #666;
+    }
 
-      .btn-custom {
-        background: var(--primary-gradient);
-        border: none;
-        border-radius: 25px;
-        padding: 12px 30px;
-        color: white;
-        font-weight: 600;
-        transition: all 0.3s ease;
-      }
+    .genre-badge {
+      background: var(--secondary-gradient);
+      color: white;
+      padding: 8px 16px;
+      border-radius: 20px;
+      display: inline-block;
+      margin: 5px;
+      font-weight: 600;
+    }
 
-      .btn-custom:hover {
-        transform: translateY(-2px);
-        box-shadow: 0 10px 20px rgba(0, 0, 0, 0.2);
-        color: white;
-      }
+    .confidence-meter {
+      background: rgba(255, 255, 255, 0.1);
+      border-radius: 10px;
+      padding: 10px;
+      margin: 10px 0;
+    }
 
-      .btn-success-custom {
-        background: var(--success-gradient);
-      }
+    /* Noise Reduction Comparison Styles */
+    .metric-item {
+      padding: 8px 0;
+      border-bottom: 1px solid rgba(0, 0, 0, 0.1);
+      font-size: 0.95em;
+    }
 
-      .btn-warning-custom {
-        background: var(--warning-gradient);
-      }
+    .metric-item:last-child {
+      border-bottom: none;
+    }
 
-      .btn-danger-custom {
-        background: var(--secondary-gradient);
-      }
+    .accordion-button {
+      font-weight: 600;
+      font-size: 0.95em;
+    }
 
+    .audio-comparison-player audio {
+      width: 100%;
+      margin: 10px 0;
+    }
       .btn-info-custom {
         background: linear-gradient(135deg, #3498db, #2980b9);
         border: none;
@@ -119,134 +238,137 @@
         margin: 15px 0;
       }
 
-      .slider-label {
-        font-weight: 600;
-        margin-bottom: 8px;
-        display: flex;
-        justify-content: space-between;
-      }
+    .card-header h6 {
+      margin: 0;
+      font-weight: 600;
+    }
 
-      .custom-range {
-        height: 8px;
-        border-radius: 4px;
-      }
+    .progress-bar {
+      background: var(--primary-gradient);
+    }
 
-      .custom-range::-webkit-slider-thumb {
-        background: var(--primary-gradient);
-        border: none;
-        width: 20px;
-        height: 20px;
-        border-radius: 50%;
-      }
+    .realtime-controls {
+      background: rgba(0, 0, 0, 0.05);
+      border-radius: 15px;
+      padding: 20px;
+      margin: 15px 0;
+    }
 
-      .status-indicator {
-        display: inline-block;
-        width: 12px;
-        height: 12px;
-        border-radius: 50%;
-        margin-right: 8px;
-      }
+    .audio-visualizer {
+      height: 200px;
+      background: rgba(0, 0, 0, 0.05);
+      border-radius: 10px;
+      margin: 15px 0;
+      position: relative;
+      overflow: hidden;
+    }
 
-      .status-active {
-        background: #28a745;
-      }
-      .status-inactive {
-        background: #dc3545;
-      }
-      .status-processing {
-        background: #ffc107;
-        animation: pulse 1s infinite;
-      }
+    .chart-container {
+      position: relative;
+      height: 300px;
+      margin: 20px 0;
+    }
 
-      @keyframes pulse {
-        0% {
-          opacity: 1;
-        }
-        50% {
-          opacity: 0.5;
-        }
-        100% {
-          opacity: 1;
-        }
-      }
+    .tab-content {
+      padding: 20px 0;
+    }
 
-      .upload-area {
-        border: 3px dashed #667eea;
-        border-radius: 15px;
-        padding: 40px;
-        text-align: center;
-        background: rgba(102, 126, 234, 0.05);
-        transition: all 0.3s ease;
-        cursor: pointer;
-      }
+    .module-header {
+      background: var(--primary-gradient);
+      color: white;
+      padding: 15px 25px;
+      margin: -25px -25px 25px -25px;
+      border-radius: 15px 15px 0 0;
+    }
 
-      .upload-area:hover,
-      .upload-area.dragover {
-        border-color: #764ba2;
-        background: rgba(118, 75, 162, 0.1);
-      }
+    .setting-group {
+      background: rgba(0, 0, 0, 0.02);
+      border-radius: 10px;
+      padding: 15px;
+      margin: 15px 0;
+    }
 
-      .result-card {
-        background: var(--secondary-gradient);
-        color: white;
-        border-radius: 15px;
-        padding: 20px;
-        margin: 15px 0;
-      }
+    /* Comparison Results Styles */
+    .comparison-item {
+      border: 2px solid #e9ecef;
+      border-radius: 10px;
+      padding: 15px;
+      text-align: center;
+      background: rgba(255, 255, 255, 0.8);
+      transition: all 0.3s ease;
+    }
 
-      .frequency-display {
-        font-family: monospace;
-        font-size: 0.9em;
-        color: #666;
-      }
+    .comparison-item.winner {
+      border-color: #28a745;
+      background: rgba(40, 167, 69, 0.1);
+      box-shadow: 0 4px 15px rgba(40, 167, 69, 0.2);
+      transform: scale(1.02);
+    }
 
-      .genre-badge {
-        background: var(--secondary-gradient);
-        color: white;
-        padding: 8px 16px;
-        border-radius: 20px;
-        display: inline-block;
-        margin: 5px;
-        font-weight: 600;
-      }
+    .confidence-badge {
+      display: inline-block;
+      background: var(--primary-gradient);
+      color: white;
+      padding: 4px 8px;
+      border-radius: 15px;
+      font-size: 0.8em;
+      font-weight: bold;
+      margin-left: 8px;
+    }
 
-      .confidence-meter {
-        background: rgba(255, 255, 255, 0.1);
-        border-radius: 10px;
-        padding: 10px;
-        margin: 10px 0;
-      }
+    .comparison-item.winner .confidence-badge {
+      background: var(--success-gradient);
+    }
 
-      /* Noise Reduction Comparison Styles */
-      .metric-item {
-        padding: 8px 0;
-        border-bottom: 1px solid rgba(0, 0, 0, 0.1);
-        font-size: 0.95em;
-      }
+    /* Simplified Button Styles */
+    .btn.h-100 {
+      min-height: 120px;
+    }
 
-      .metric-item:last-child {
-        border-bottom: none;
-      }
+    .btn .fa-2x {
+      color: rgba(255, 255, 255, 0.9);
+    }
 
-      .accordion-button {
-        font-weight: 600;
-        font-size: 0.95em;
-      }
+    .btn:hover .fa-2x {
+      transform: scale(1.1);
+      transition: transform 0.3s ease;
+    }
 
-      .audio-comparison-player audio {
-        width: 100%;
-        margin: 10px 0;
-      }
+    .btn h5 {
+      margin-bottom: 0.5rem;
+      font-weight: bold;
+    }
 
-      .card-header h6 {
-        margin: 0;
-        font-weight: 600;
-      }
+    .btn small {
+      opacity: 0.9;
+      font-size: 0.75em;
+    }
 
-      .progress-bar {
-        background: var(--primary-gradient);
-      }
+    /* Analysis Visualization Styles */
+    .analysis-plot {
+      background: white;
+      border-radius: 12px;
+      padding: 20px;
+      margin: 15px 0;
+      box-shadow: 0 4px 12px rgba(0, 0, 0, 0.1);
+      border: 1px solid #e9ecef;
+    }
 
+    .analysis-plot h6 {
+      color: #667eea;
+      font-weight: bold;
+      margin-bottom: 15px;
+      display: flex;
+      align-items: center;
+    }
+
+    .analysis-plot img {
+      width: 100%;
+      max-width: 100%;
+      height: auto;
+      border-radius: 8px;
+      box-shadow: 0 2px 8px rgba(0, 0, 0, 0.1);
+    }
       /* Audio Controls Panel Enhanced */
       .audio-controls-panel {
         background: linear-gradient(
@@ -510,12 +632,17 @@
         box-shadow: 0 6px 20px rgba(0, 0, 0, 0.3);
       }
 
-      .chart-container {
-        position: relative;
-        height: 300px;
-        margin: 20px 0;
-      }
+    .feature-stats {
+      background: linear-gradient(135deg, #f8f9fa 0%, #e9ecef 100%);
+      border-radius: 10px;
+      padding: 15px;
+      margin: 10px 0;
+    }
 
+    .feature-stats .row>div {
+      text-align: center;
+      padding: 10px;
+    }
       .chart-container-large {
         background: rgba(255, 255, 255, 0.15);
         backdrop-filter: blur(20px);
@@ -734,1008 +861,271 @@
         padding: 20px 0;
       }
 
-      .module-header {
-        background: var(--primary-gradient);
-        color: white;
-        padding: 15px 25px;
-        margin: -25px -25px 25px -25px;
-        border-radius: 15px 15px 0 0;
-      }
-
-      .setting-group {
-        background: rgba(0, 0, 0, 0.02);
-        border-radius: 10px;
-        padding: 15px;
-        margin: 15px 0;
-      }
-
-      /* Comparison Results Styles */
-      .comparison-item {
-        border: 2px solid #e9ecef;
-        border-radius: 10px;
-        padding: 15px;
-        text-align: center;
-        background: rgba(255, 255, 255, 0.8);
-        transition: all 0.3s ease;
-      }
-
-      .comparison-item.winner {
-        border-color: #28a745;
-        background: rgba(40, 167, 69, 0.1);
-        box-shadow: 0 4px 15px rgba(40, 167, 69, 0.2);
-        transform: scale(1.02);
-      }
-
-      .confidence-badge {
-        display: inline-block;
-        background: var(--primary-gradient);
-        color: white;
-        padding: 4px 8px;
-        border-radius: 15px;
-        font-size: 0.8em;
-        font-weight: bold;
-        margin-left: 8px;
-      }
-
-      .comparison-item.winner .confidence-badge {
-        background: var(--success-gradient);
-      }
-
-      /* Simplified Button Styles */
-      .btn.h-100 {
-        min-height: 120px;
-      }
-
-      .btn .fa-2x {
-        color: rgba(255, 255, 255, 0.9);
-      }
-
-      .btn:hover .fa-2x {
-        transform: scale(1.1);
-        transition: transform 0.3s ease;
-      }
-
-      .btn h5 {
-        margin-bottom: 0.5rem;
-        font-weight: bold;
-      }
-
-      .btn small {
-        opacity: 0.9;
-        font-size: 0.75em;
-      }
-
-      /* Analysis Visualization Styles */
-      .analysis-plot {
-        background: white;
-        border-radius: 12px;
-        padding: 20px;
-        margin: 15px 0;
-        box-shadow: 0 4px 12px rgba(0, 0, 0, 0.1);
-        border: 1px solid #e9ecef;
-      }
-
-      .analysis-plot h6 {
-        color: #667eea;
-        font-weight: bold;
-        margin-bottom: 15px;
-        display: flex;
-        align-items: center;
-      }
-
-      .analysis-plot img {
-        width: 100%;
-        max-width: 100%;
-        height: auto;
-        border-radius: 8px;
-        box-shadow: 0 2px 8px rgba(0, 0, 0, 0.1);
-      }
-
-      .feature-stats {
-        background: linear-gradient(135deg, #f8f9fa 0%, #e9ecef 100%);
-        border-radius: 10px;
-        padding: 15px;
-        margin: 10px 0;
-      }
-
-      .feature-stats .row > div {
-        text-align: center;
-        padding: 10px;
-      }
-
-      .feature-stats .metric-value {
-        font-size: 1.5rem;
-        font-weight: bold;
-        color: #667eea;
-      }
-
-      .feature-stats .metric-label {
-        font-size: 0.9rem;
-        color: #666;
-        margin-top: 5px;
-      }
-
-      .classification-reasoning {
-        background: linear-gradient(135deg, #e3f2fd 0%, #bbdefb 100%);
-        border-radius: 12px;
-        padding: 20px;
-        margin: 15px 0;
-        border-left: 4px solid #2196f3;
-      }
-
-      .classification-reasoning h6 {
-        color: #1976d2;
-        margin-bottom: 15px;
-      }
-
-      .reasoning-point {
-        margin: 8px 0;
-        padding-left: 20px;
-        position: relative;
-      }
-
-      .reasoning-point:before {
-        content: "🎵";
-        position: absolute;
-        left: 0;
-        top: 0;
-      }
-
-      .export-section {
-        background: linear-gradient(135deg, #f3e5f5 0%, #e1bee7 100%);
-        border-radius: 12px;
-        padding: 20px;
-        margin: 20px 0;
-        text-align: center;
-      }
-
-      /* Signal Level Bars */
-      .signal-bars {
-        background: rgba(255, 255, 255, 0.05);
-        border-radius: 10px;
-        padding: 15px;
-        border: 1px solid rgba(255, 255, 255, 0.1);
-      }
-
-      .signal-bar-container {
-        margin-bottom: 10px;
-      }
-
-      .signal-bar-bg {
-        width: 100%;
-        height: 20px;
-        background: rgba(255, 255, 255, 0.1);
-        border-radius: 10px;
-        overflow: hidden;
-        border: 1px solid rgba(255, 255, 255, 0.2);
-        position: relative;
-      }
-
-      .signal-bar {
-        height: 100%;
-        width: 0%;
-        background: #00ff88;
-        border-radius: 10px;
-        transition: width 0.1s ease-out;
-        box-shadow: 0 0 10px rgba(0, 255, 136, 0.5);
-        position: relative;
-      }
-
-      .signal-bar::after {
-        content: "";
-        position: absolute;
-        top: 0;
-        right: 0;
-        width: 3px;
-        height: 100%;
-        background: rgba(255, 255, 255, 0.8);
-        border-radius: 0 10px 10px 0;
-      }
-
-      .signal-bars label {
-        color: #ffffff;
-        font-size: 12px;
-        font-weight: 500;
-        margin-bottom: 5px;
-        display: block;
-      }
-
-      .signal-bars small {
-        color: rgba(255, 255, 255, 0.7);
-        font-size: 10px;
-      }
-
-      /* EQ Bands Styling - Fixed */
-      .eq-bands {
-        display: flex;
-        flex-direction: column;
-        gap: 15px; /* Increased spacing */
-      }
-
-      .eq-band {
-        background: rgba(255, 255, 255, 0.08);
-        border-radius: 12px;
-        padding: 15px; /* Increased padding */
-        border: 1px solid rgba(255, 255, 255, 0.15);
-        text-align: center;
-      }
-
-      .eq-band label {
-        font-size: 14px; /* Increased font size */
-        font-weight: 600;
-        color: #000000 !important; /* Force black color for better visibility */
-        margin-bottom: 8px;
-        display: block;
-        text-shadow: none;
-      }
-
-      .eq-band .form-range {
-        margin: 8px 0;
-        height: 8px; /* Thicker slider */
-      }
-
-      .eq-band small {
-        color: #000000 !important; /* Force black color for better visibility */
-        font-size: 12px; /* Increased font size */
-        font-weight: 600;
-        text-shadow: none;
-        background: rgba(255, 255, 255, 0.7);
-        padding: 2px 8px;
-        border-radius: 4px;
-        display: inline-block;
-        margin-top: 5px;
-      }
-
-      /* Enhanced DSP Button Styling */
-      .btn-group-vertical .btn-outline-light {
-        background: rgba(255, 255, 255, 0.1);
-        border: 1px solid rgba(255, 255, 255, 0.3);
-        color: #ffffff;
-        margin-bottom: 5px;
-        border-radius: 8px !important;
-        transition: all 0.3s ease;
-        font-size: 12px;
-        font-weight: 500;
-      }
-
-      .btn-group-vertical .btn-outline-light:hover {
-        background: rgba(102, 126, 234, 0.3);
-        border-color: #667eea;
-        transform: translateY(-1px);
-        box-shadow: 0 4px 8px rgba(102, 126, 234, 0.2);
-      }
-
-      .btn-group-vertical .btn-check:checked + .btn-outline-light {
-        background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
-        border-color: #667eea;
-        color: #ffffff;
-        box-shadow: 0 4px 12px rgba(102, 126, 234, 0.4);
-      }
-
-      /* Enhanced Form Ranges */
-      .form-range {
-        background: rgba(255, 255, 255, 0.1);
-        border-radius: 8px;
-        height: 6px;
-      }
-
-      .form-range::-webkit-slider-thumb {
-        background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
-        border: 2px solid #ffffff;
-        width: 18px;
-        height: 18px;
-        border-radius: 50%;
-        box-shadow: 0 2px 6px rgba(0, 0, 0, 0.2);
-      }
-
-      .form-range::-moz-range-thumb {
-        background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
-        border: 2px solid #ffffff;
-        width: 18px;
-        height: 18px;
-        border-radius: 50%;
-        box-shadow: 0 2px 6px rgba(0, 0, 0, 0.2);
-      }
-
-      /* Recording Controls Enhancement */
-      .recording-controls {
-        background: linear-gradient(
-          135deg,
-          rgba(255, 255, 255, 0.1) 0%,
-          rgba(255, 255, 255, 0.05) 100%
-        );
-        border-radius: 15px;
-        padding: 20px;
-        border: 1px solid rgba(255, 255, 255, 0.15);
-        backdrop-filter: blur(10px);
-      }
-
-      .recording-controls h6 {
-        color: #ffffff;
-        text-align: center;
-        margin-bottom: 15px;
-      }
-
-      /* Button Enhancements */
-      .btn-info-custom,
-      .btn-success-custom,
-      .btn-danger-custom,
-      .btn-primary-custom {
-        border-radius: 10px;
-        font-weight: 500;
-        padding: 10px 15px;
-        transition: all 0.3s ease;
-        border: none;
-        box-shadow: 0 4px 12px rgba(0, 0, 0, 0.15);
-      }
-
-      .btn-info-custom:hover,
-      .btn-success-custom:hover,
-      .btn-danger-custom:hover,
-      .btn-primary-custom:hover {
-        transform: translateY(-2px);
-        box-shadow: 0 6px 20px rgba(0, 0, 0, 0.2);
-      }
-
-      /* NEW REAL-TIME TAB STYLES - IMPROVED */
-      .control-section {
-        background: #ffffff;
-        border-radius: 12px;
-        padding: 1.5rem;
-        border: 1px solid #e3e6f0;
-        box-shadow: 0 2px 8px rgba(0, 0, 0, 0.1);
-        transition: box-shadow 0.3s ease;
-      }
-
-      .control-section:hover {
-        box-shadow: 0 4px 12px rgba(0, 0, 0, 0.15);
-      }
-
-      .section-header {
-        display: flex;
-        justify-content: space-between;
-        align-items: center;
-        border-bottom: 2px solid #f8f9fa;
-        padding-bottom: 0.75rem;
-        margin-bottom: 1rem;
-      }
-
-      .section-header h6 {
-        margin: 0;
-        color: #2c3e50;
-        font-weight: 700;
-        font-size: 1rem;
-        display: flex;
-        align-items: center;
-        gap: 0.5rem;
-      }
-
-      .section-header h6 i {
-        color: #3498db;
-        font-size: 1.1rem;
-      }
-
-      .microphone-status {
-        background: #f8f9fa;
-        padding: 1rem;
-        border-radius: 8px;
-        border: 2px solid #dee2e6;
-        margin-bottom: 0.75rem;
-        transition: all 0.3s ease;
-      }
-
-      .microphone-status.connected {
-        background: linear-gradient(135deg, #d4edda 0%, #c3e6cb 100%);
-        border-color: #28a745;
-        color: #155724;
-      }
-
-      .microphone-status.error {
-        background: linear-gradient(135deg, #f8d7da 0%, #f5c6cb 100%);
-        border-color: #dc3545;
-        color: #721c24;
-      }
-
-      .status-indicator {
-        display: flex;
-        align-items: center;
-        gap: 0.75rem;
-        font-size: 0.95rem;
-        font-weight: 500;
-      }
-
-      .status-indicator i {
-        font-size: 1.2rem;
-      }
-
-      /* Enhanced EQ Bands */
-      .eq-bands .eq-band {
-        text-align: center;
-        padding: 0.5rem;
-        background: #f8f9fa;
-        border-radius: 8px;
-        margin-bottom: 0.5rem;
-        transition: background-color 0.2s ease;
-      }
-
-      .eq-bands .eq-band:hover {
-        background: #e9ecef;
-      }
-
-      .eq-bands .form-label {
-        font-size: 0.85rem;
-        font-weight: 600;
-        margin-bottom: 0.5rem;
-        display: block;
-        color: #495057;
-      }
-
-      .eq-bands .form-range {
-        margin-bottom: 0.25rem;
-        height: 6px;
-      }
-
-      .eq-bands .form-range::-webkit-slider-thumb {
-        background: #3498db;
-        border: 2px solid #ffffff;
-        box-shadow: 0 2px 4px rgba(0, 0, 0, 0.2);
-      }
-
-      .eq-bands small {
-        font-size: 0.75rem;
-        font-weight: 600;
-        color: #6c757d;
-      }
-
-      /* DSP Algorithm Buttons */
-      .dsp-buttons .btn {
-        font-size: 0.85rem;
-        padding: 0.5rem 0.75rem;
-        font-weight: 600;
-        border-radius: 6px;
-        transition: all 0.2s ease;
-      }
-
-      .dsp-buttons .btn.active {
-        background: linear-gradient(135deg, #3498db 0%, #2980b9 100%);
-        border-color: #2980b9;
-        color: white;
-        box-shadow: 0 2px 8px rgba(52, 152, 219, 0.3);
-      }
-
-      .dsp-buttons .btn:not(.active):hover {
-        background-color: #e9ecef;
-        border-color: #adb5bd;
-      }
-
-      /* Visualizer Sections */
-      .visualizer-section {
-        background: #ffffff;
-        border-radius: 12px;
-        padding: 1.5rem;
-        border: 1px solid #e3e6f0;
-        box-shadow: 0 2px 8px rgba(0, 0, 0, 0.1);
-        transition: box-shadow 0.3s ease;
-      }
-
-      .visualizer-section:hover {
-        box-shadow: 0 4px 12px rgba(0, 0, 0, 0.15);
-      }
-
-      .audio-graph {
-        position: relative;
-        background: linear-gradient(135deg, #ffffff 0%, #f8f9fa 100%);
-        border-radius: 8px;
-        border: 2px solid #e9ecef;
-        overflow: hidden;
-        box-shadow: inset 0 2px 4px rgba(0, 0, 0, 0.05);
-      }
-
-      .audio-graph canvas {
-        width: 100%;
-        height: 220px;
-        display: block;
-        background: transparent;
-      }
-
-      .graph-overlay {
-        position: absolute;
-        top: 0;
-        left: 0;
-        right: 0;
-        bottom: 0;
-        background: rgba(248, 249, 250, 0.98);
-        display: flex;
-        align-items: center;
-        justify-content: center;
-        border-radius: 6px;
-        transition: all 0.3s ease;
-        backdrop-filter: blur(2px);
-      }
-
-      .graph-overlay.hidden {
-        opacity: 0;
-        pointer-events: none;
-        transform: scale(0.95);
-      }
-
-      .overlay-content {
-        text-align: center;
-        color: #6c757d;
-        padding: 2rem;
-      }
-
-      .overlay-content i {
-        color: #adb5bd;
-        margin-bottom: 1rem;
-        display: block;
-      }
-
-      .overlay-content p {
-        margin: 0;
-        font-size: 1rem;
-        font-weight: 500;
-      }
-
-      /* Enhanced Form Controls */
-      .form-range {
-        transition: all 0.2s ease;
-        height: 6px;
-        background: #e9ecef;
-        border-radius: 3px;
-      }
-
-      .form-range:focus {
-        box-shadow: 0 0 0 0.25rem rgba(52, 152, 219, 0.25);
-        outline: none;
-      }
-
-      .form-range::-webkit-slider-thumb {
-        background: linear-gradient(135deg, #3498db 0%, #2980b9 100%);
-        border: 2px solid #ffffff;
-        box-shadow: 0 2px 6px rgba(0, 0, 0, 0.2);
-        width: 20px;
-        height: 20px;
-      }
-
-      .form-select:focus,
-      .form-control:focus {
-        border-color: #3498db;
-        box-shadow: 0 0 0 0.25rem rgba(52, 152, 219, 0.25);
-      }
-
-      .btn-primary {
-        background: linear-gradient(135deg, #3498db 0%, #2980b9 100%);
-        border-color: #2980b9;
-        box-shadow: 0 2px 8px rgba(52, 152, 219, 0.3);
-        transition: all 0.2s ease;
-      }
-
-      .btn-primary:hover {
-        background: linear-gradient(135deg, #2980b9 0%, #21618c 100%);
-        border-color: #21618c;
-        transform: translateY(-1px);
-        box-shadow: 0 4px 12px rgba(52, 152, 219, 0.4);
-      }
-
-      .btn-outline-secondary {
-        border-color: #dee2e6;
-        color: #6c757d;
-        transition: all 0.2s ease;
-      }
-
-      .btn-outline-secondary:hover {
-        background-color: #f8f9fa;
-        border-color: #adb5bd;
-        color: #495057;
-      }
-
-      /* Form Check Enhancements */
-      .form-check-input:checked {
-        background-color: #3498db;
-        border-color: #3498db;
-      }
-
-      .form-check-input:focus {
-        box-shadow: 0 0 0 0.25rem rgba(52, 152, 219, 0.25);
-      }
-
-      .form-check-label {
-        font-weight: 500;
-        color: #495057;
-      }
-
-      /* Stats Panel Styles */
-      .stat-card {
-        transition: all 0.3s ease;
-        background: linear-gradient(135deg, #ffffff 0%, #f8f9fa 100%);
-        border: 1px solid #dee2e6 !important;
-      }
-
-      .stat-card:hover {
-        transform: translateY(-2px);
-        box-shadow: 0 4px 12px rgba(0, 0, 0, 0.1);
-      }
-
-      .stat-icon i {
-        font-size: 1.5rem;
-      }
-
-      .stat-card .h5 {
-        font-family: 'Consolas', 'Monaco', monospace;
-        letter-spacing: 0.5px;
-      }
-
-      .stat-card .h6 {
-        font-family: 'Consolas', 'Monaco', monospace;
-        letter-spacing: 0.3px;
-      }
-
-      .badge {
-        font-size: 0.75rem;
-        padding: 0.35em 0.65em;
-      }
-
-      .bg-gradient {
-        background: linear-gradient(135deg, rgba(255, 255, 255, 0.8) 0%, rgba(248, 249, 250, 0.6) 100%);
-      }
-
-      /* Button Group Enhancements */
-      .btn-group .btn.active {
-        background: linear-gradient(135deg, #3498db 0%, #2980b9 100%);
-        border-color: #2980b9;
-        color: white;
-        box-shadow: 0 2px 6px rgba(52, 152, 219, 0.4);
-      }
-
-      .btn-group .btn {
-        font-size: 0.8rem;
-        padding: 0.4rem 0.8rem;
-        font-weight: 500;
-        border-width: 1px;
-      }
-
-      .btn-group .btn i {
-        margin-right: 0.3rem;
-      }
-
-      /* Enhanced Button Styles */
-      .btn-sm {
-        padding: 0.4rem 0.8rem;
-        font-size: 0.8rem;
-        font-weight: 600;
-        border-radius: 6px;
-      }
-
-      .btn-sm i {
-        font-size: 0.75rem;
-      }
-
-      /* Pulse Animation for Active States */
-      @keyframes pulse {
-        0% { box-shadow: 0 0 0 0 rgba(52, 152, 219, 0.7); }
-        70% { box-shadow: 0 0 0 10px rgba(52, 152, 219, 0); }
-        100% { box-shadow: 0 0 0 0 rgba(52, 152, 219, 0); }
-      }
-
-      .microphone-status.connected {
-        animation: pulse 2s infinite;
-      }
-
-      /* Professional Color Scheme */
-      .text-primary { color: #3498db !important; }
-      .text-success { color: #27ae60 !important; }
-      .text-warning { color: #f39c12 !important; }
-      .text-info { color: #8e44ad !important; }
-
-      /* Loading States */
-      .loading {
-        position: relative;
-        overflow: hidden;
-      }
-
-      .loading::after {
-        content: '';
-        position: absolute;
-        top: 0;
-        left: -100%;
-        width: 100%;
-        height: 100%;
-        background: linear-gradient(90deg, transparent, rgba(52, 152, 219, 0.2), transparent);
-        animation: loading 1.5s infinite;
-      }
-
-      @keyframes loading {
-        0% { left: -100%; }
-        100% { left: 100%; }
-      }
-
-      /* Responsive Design Improvements */
-      @media (max-width: 768px) {
-        .audio-graph canvas {
-          height: 180px;
-        }
-        
-        .control-section {
-          margin-bottom: 1rem;
-          padding: 1rem;
-        }
-
-        .section-header h6 {
-          font-size: 0.9rem;
-        }
-
-        .eq-bands .eq-band {
-          margin-bottom: 0.75rem;
-        }
-
-        .dsp-buttons .btn {
-          font-size: 0.8rem;
-          padding: 0.4rem 0.6rem;
-        }
-
-        .stat-card {
-          margin-bottom: 0.5rem;
-        }
-
-        .btn-group .btn {
-          font-size: 0.75rem;
-          padding: 0.3rem 0.6rem;
-        }
-      }
-
-      @media (max-width: 576px) {
-        .audio-graph canvas {
-          height: 150px;
-        }
-
-        .overlay-content {
-          padding: 1rem;
-        }
-
-        .overlay-content p {
-          font-size: 0.9rem;
-        }
-
-        .stat-card .h5 {
-          font-size: 1rem;
-        }
-
-        .col-md-3 {
-          margin-bottom: 0.5rem;
-        }
-      }
-    </style>
-  </head>
-  <body>
-    <div class="container-fluid">
-      <div class="main-container">
-        <!-- Header -->
-        <div class="text-center p-4">
-          <h1 class="display-4">
-            <i class="fas fa-music"></i> Advanced Audio Processing
-          </h1>
-          <p class="lead text-muted">
-            Modular Audio Processing with Equalizer, Noise Reduction, Genre
-            Classification & Real-time Processing
-          </p>
-        </div>
-
-        <!-- Navigation Tabs -->
-        <div class="px-4">
-          <ul
-            class="nav nav-pills justify-content-center"
-            id="mainTabs"
-            role="tablist"
-          >
-            <li class="nav-item" role="presentation">
-              <button
-                class="nav-link"
-                id="file-tab"
-                data-bs-toggle="pill"
-                data-bs-target="#file-processing"
-                type="button"
-                role="tab"
-              >
-                <i class="fas fa-file-audio"></i> File Upload
-              </button>
-            </li>
-            <li class="nav-item" role="presentation">
-              <button
-                class="nav-link"
-                id="equalizer-tab"
-                data-bs-toggle="pill"
-                data-bs-target="#equalizer"
-                type="button"
-                role="tab"
-              >
-                <i class="fas fa-sliders-h"></i> Equalizer
-              </button>
-            </li>
-            <li class="nav-item" role="presentation">
-              <button
-                class="nav-link"
-                id="noise-tab"
-                data-bs-toggle="pill"
-                data-bs-target="#noise-reduction"
-                type="button"
-                role="tab"
-              >
-                <i class="fas fa-magic"></i> Noise Reduction
-              </button>
-            </li>
-            <li class="nav-item" role="presentation">
-              <button
-                class="nav-link"
-                id="genre-tab"
-                data-bs-toggle="pill"
-                data-bs-target="#genre-classification"
-                type="button"
-                role="tab"
-              >
-                <i class="fas fa-brain"></i> Genre Classification
-              </button>
-            </li>
-            <li class="nav-item" role="presentation">
-              <button
-                class="nav-link active"
-                id="realtime-tab"
-                data-bs-toggle="pill"
-                data-bs-target="#realtime"
-                type="button"
-                role="tab"
-              >
-                <i class="fas fa-broadcast-tower"></i> Real-time
-              </button>
-            </li>
-            <li class="nav-item" role="presentation">
-              <button
-                class="nav-link"
-                id="analysis-tab"
-                data-bs-toggle="pill"
-                data-bs-target="#analysis"
-                type="button"
-                role="tab"
-              >
-                <i class="fas fa-chart-line"></i> Analysis
-              </button>
-            </li>
-          </ul>
-        </div>
-
-        <!-- Tab Content -->
-        <div class="tab-content p-4" id="mainTabContent">
-          <!-- File Processing Tab -->
-          <div class="tab-pane fade" id="file-processing" role="tabpanel">
-            <div class="module-card">
-              <div class="module-header">
-                <h3>
-                  <i class="fas fa-file-audio"></i> Audio File Upload &
-                  Management
-                </h3>
-                <p class="mb-0">
-                  Upload your audio files (MP3, WAV, FLAC) to start processing
-                </p>
+    .feature-stats .metric-value {
+      font-size: 1.5rem;
+      font-weight: bold;
+      color: #667eea;
+    }
+
+    .feature-stats .metric-label {
+      font-size: 0.9rem;
+      color: #666;
+      margin-top: 5px;
+    }
+
+    .classification-reasoning {
+      background: linear-gradient(135deg, #e3f2fd 0%, #bbdefb 100%);
+      border-radius: 12px;
+      padding: 20px;
+      margin: 15px 0;
+      border-left: 4px solid #2196f3;
+    }
+
+    .classification-reasoning h6 {
+      color: #1976d2;
+      margin-bottom: 15px;
+    }
+
+    .reasoning-point {
+      margin: 8px 0;
+      padding-left: 20px;
+      position: relative;
+    }
+
+    .reasoning-point:before {
+      content: "🎵";
+      position: absolute;
+      left: 0;
+      top: 0;
+    }
+
+    .export-section {
+      background: linear-gradient(135deg, #f3e5f5 0%, #e1bee7 100%);
+      border-radius: 12px;
+      padding: 20px;
+      margin: 20px 0;
+      text-align: center;
+    }
+  </style>
+</head>
+
+<body>
+  <div class="container-fluid">
+    <div class="main-container">
+      <!-- Header -->
+      <div class="text-center p-4">
+        <h1 class="display-4">
+          <i class="fas fa-music"></i> Advanced Audio Processing
+        </h1>
+        <p class="lead text-muted">
+          Modular Audio Processing with Equalizer, Noise Reduction, Genre
+          Classification & Real-time Processing
+        </p>
+      </div>
+
+      <!-- Navigation Tabs -->
+      <div class="px-4">
+        <ul class="nav nav-pills justify-content-center" id="mainTabs" role="tablist">
+          <li class="nav-item" role="presentation">
+            <button class="nav-link active" id="file-tab" data-bs-toggle="pill" data-bs-target="#file-processing"
+              type="button" role="tab">
+              <i class="fas fa-file-audio"></i> File Upload
+            </button>
+          </li>
+          <li class="nav-item" role="presentation">
+            <button class="nav-link" id="equalizer-tab" data-bs-toggle="pill" data-bs-target="#equalizer" type="button"
+              role="tab">
+              <i class="fas fa-sliders-h"></i> Equalizer
+            </button>
+          </li>
+          <li class="nav-item" role="presentation">
+            <button class="nav-link" id="noise-tab" data-bs-toggle="pill" data-bs-target="#noise-reduction"
+              type="button" role="tab">
+              <i class="fas fa-magic"></i> Noise Reduction
+            </button>
+          </li>
+          <li class="nav-item" role="presentation">
+            <button class="nav-link" id="genre-tab" data-bs-toggle="pill" data-bs-target="#genre-classification"
+              type="button" role="tab">
+              <i class="fas fa-brain"></i> Genre Classification
+            </button>
+          </li>
+          <li class="nav-item" role="presentation">
+            <button class="nav-link" id="realtime-tab" data-bs-toggle="pill" data-bs-target="#realtime" type="button"
+              role="tab">
+              <i class="fas fa-broadcast-tower"></i> Real-time
+            </button>
+          </li>
+          <li class="nav-item" role="presentation">
+            <button class="nav-link" id="analysis-tab" data-bs-toggle="pill" data-bs-target="#analysis" type="button"
+              role="tab">
+              <i class="fas fa-chart-line"></i> Analysis
+            </button>
+          </li>
+        </ul>
+      </div>
+
+      <!-- Tab Content -->
+      <div class="tab-content p-4" id="mainTabContent">
+        <!-- File Processing Tab -->
+        <div class="tab-pane fade show active" id="file-processing" role="tabpanel">
+          <div class="module-card">
+            <div class="module-header">
+              <h3>
+                <i class="fas fa-file-audio"></i> Audio File Upload &
+                Management
+              </h3>
+              <p class="mb-0">
+                Upload your audio files (MP3, WAV, FLAC) to start processing
+              </p>
+            </div>
+
+            <!-- File Upload Area -->
+            <div class="upload-area" id="uploadArea">
+              <div class="mb-3">
+                <i class="fas fa-cloud-upload-alt fa-3x text-primary"></i>
               </div>
+              <h4>Drop your audio file here</h4>
+              <p class="text-muted">or click to browse files</p>
+              <p class="small text-muted">
+                Supported formats: MP3, WAV, FLAC (Max: 16MB)
+              </p>
+              <input type="file" id="audioFile" accept="audio/*" class="d-none" />
+            </div>
 
-              <!-- File Upload Area -->
-              <div class="upload-area" id="uploadArea">
-                <div class="mb-3">
-                  <i class="fas fa-cloud-upload-alt fa-3x text-primary"></i>
-                </div>
-                <h4>Drop your audio file here</h4>
-                <p class="text-muted">or click to browse files</p>
-                <p class="small text-muted">
-                  Supported formats: MP3, WAV, FLAC (Max: 16MB)
-                </p>
-                <input
-                  type="file"
-                  id="audioFile"
-                  accept="audio/*"
-                  class="d-none"
-                />
-              </div>
-
-              <!-- File Info Display -->
-              <div id="fileInfo" class="mt-4" style="display: none">
-                <div class="alert alert-success">
-                  <h5>
-                    <i class="fas fa-check-circle"></i> File Loaded Successfully
-                  </h5>
-                  <div class="row">
-                    <div class="col-md-6">
-                      <p>
-                        <strong>Filename:</strong> <span id="fileName"></span>
-                      </p>
-                      <p>
-                        <strong>Duration:</strong>
-                        <span id="fileDuration"></span> seconds
-                      </p>
-                    </div>
-                    <div class="col-md-6">
-                      <p>
-                        <strong>Sample Rate:</strong>
-                        <span id="fileSampleRate"></span> Hz
-                      </p>
-                      <p>
-                        <strong>RMS Level:</strong> <span id="fileRMS"></span>
-                      </p>
-                    </div>
+            <!-- File Info Display -->
+            <div id="fileInfo" class="mt-4" style="display: none">
+              <div class="alert alert-success">
+                <h5>
+                  <i class="fas fa-check-circle"></i> File Loaded Successfully
+                </h5>
+                <div class="row">
+                  <div class="col-md-6">
+                    <p>
+                      <strong>Filename:</strong> <span id="fileName"></span>
+                    </p>
+                    <p>
+                      <strong>Duration:</strong>
+                      <span id="fileDuration"></span> seconds
+                    </p>
                   </div>
-                </div>
-              </div>
-
-              <!-- Processing Status -->
-              <div id="processingStatus" class="mt-3" style="display: none">
-                <div class="d-flex align-items-center">
-                  <div
-                    class="spinner-border spinner-border-sm text-primary me-2"
-                    role="status"
-                  ></div>
-                  <span>Processing audio file...</span>
-                </div>
-                <div class="progress mt-2">
-                  <div
-                    class="progress-bar progress-bar-striped progress-bar-animated"
-                    role="progressbar"
-                    style="width: 0%"
-                  ></div>
+                  <div class="col-md-6">
+                    <p>
+                      <strong>Sample Rate:</strong>
+                      <span id="fileSampleRate"></span> Hz
+                    </p>
+                    <p>
+                      <strong>RMS Level:</strong> <span id="fileRMS"></span>
+                    </p>
+                  </div>
                 </div>
               </div>
             </div>
+
+            <!-- Processing Status -->
+            <div id="processingStatus" class="mt-3" style="display: none">
+              <div class="d-flex align-items-center">
+                <div class="spinner-border spinner-border-sm text-primary me-2" role="status"></div>
+                <span>Processing audio file...</span>
+              </div>
+              <div class="progress mt-2">
+                <div class="progress-bar progress-bar-striped progress-bar-animated" role="progressbar"
+                  style="width: 0%"></div>
+              </div>
+            </div>
           </div>
+        </div>
 
-          <!-- Equalizer Tab -->
-          <div class="tab-pane fade" id="equalizer" role="tabpanel">
-            <div class="module-card">
-              <div class="module-header">
-                <h3><i class="fas fa-sliders-h"></i> Real-time Equalizer</h3>
-                <p class="mb-0">Adjust the 10-band equalizer and hear the changes live.</p>
+        <!-- Equalizer Tab -->
+        <div class="tab-pane fade" id="equalizer" role="tabpanel">
+          <div class="module-card">
+            <div class="module-header">
+              <h3><i class="fas fa-sliders-h"></i> Real-time Equalizer</h3>
+              <p class="mb-0">Adjust the 10-band equalizer and hear the changes live.</p>
+            </div>
+
+            <!-- Audio Player and Waveform -->
+            <div id="equalizer-player-section" class="setting-group" style="display: none;">
+              <div id="waveform-container"
+                style="width: 100%; height: 128px; background-color: #f0f2f5; border-radius: 8px; margin-bottom: 1rem;">
+                <canvas id="waveform-display"></canvas>
               </div>
-
-              <!-- Audio Player and Waveform -->
-              <div id="equalizer-player-section" class="setting-group" style="display: none;">
-                                <div id="waveform-container" style="width: 100%; height: 128px; background-color: #f0f2f5; border-radius: 8px; margin-bottom: 1rem;">
-                  <canvas id="waveform-display"></canvas>
-                </div>
-                <div class="d-flex justify-content-center align-items-center mt-3">
-                  <button id="eq-play-btn" class="btn btn-success me-2"><i class="fas fa-play"></i> Play</button>
-                  <button id="eq-pause-btn" class="btn btn-warning me-2"><i class="fas fa-pause"></i> Pause</button>
-                  <button id="eq-stop-btn" class="btn btn-danger"><i class="fas fa-stop"></i> Stop</button>
-                  <div class="ms-4">
-                    <i class="fas fa-volume-up"></i>
-                    <input type="range" id="eq-volume-slider" min="0" max="1" value="0.75" step="0.01" class="form-range d-inline-block" style="width: 150px;">
-                  </div>
+              <div class="d-flex justify-content-center align-items-center mt-3">
+                <button id="eq-play-btn" class="btn btn-success me-2"><i class="fas fa-play"></i> Play</button>
+                <button id="eq-pause-btn" class="btn btn-warning me-2"><i class="fas fa-pause"></i> Pause</button>
+                <button id="eq-stop-btn" class="btn btn-danger"><i class="fas fa-stop"></i> Stop</button>
+                <div class="ms-4">
+                  <i class="fas fa-volume-up"></i>
+                  <input type="range" id="eq-volume-slider" min="0" max="1" value="0.75" step="0.01"
+                    class="form-range d-inline-block" style="width: 150px;">
                 </div>
               </div>
+            </div>
 
-              <!-- Preset Selection -->
-              <div class="setting-group">
-                <h5>Equalizer Presets</h5>
-                <div class="row">
-                  <div class="col-md-8">
-                    <select class="form-select" id="eqPreset">
-                      <option value="">Select a preset...</option>
-                      <option value="flat">Flat</option>
-                      <option value="rock">Rock</option>
-                      <option value="pop">Pop</option>
-                      <option value="classical">Classical</option>
-                      <option value="jazz">Jazz</option>
-                      <option value="bass_boost">Bass Boost</option>
-                      <option value="treble_boost">Treble Boost</option>
-                      <option value="vocal_boost">Vocal Boost</option>
-                      <option value="electronic">Electronic</option>
+            <!-- Preset Selection -->
+            <div class="setting-group">
+              <h5>Equalizer Presets</h5>
+              <div class="row">
+                <div class="col-md-8">
+                  <select class="form-select" id="eqPreset">
+                    <option value="">Select a preset...</option>
+                    <option value="flat">Flat</option>
+                    <option value="rock">Rock</option>
+                    <option value="pop">Pop</option>
+                    <option value="classical">Classical</option>
+                    <option value="jazz">Jazz</option>
+                    <option value="bass_boost">Bass Boost</option>
+                    <option value="treble_boost">Treble Boost</option>
+                    <option value="vocal_boost">Vocal Boost</option>
+                    <option value="electronic">Electronic</option>
+                  </select>
+                </div>
+                <div class="col-md-4">
+                  <button class="btn btn-custom w-100" id="loadPreset">Load Preset</button>
+                </div>
+              </div>
+            </div>
+
+            <!-- 10-Band Equalizer Controls -->
+            <div class="setting-group">
+              <h5>Frequency Bands</h5>
+              <div class="row" id="equalizer-bands">
+                <!-- Sliders will be dynamically generated by JS -->
+              </div>
+            </div>
+
+            <!-- Process & Download Controls -->
+            <div class="setting-group">
+              <h5>Process & Download</h5>
+              <div class="row">
+                <div class="col-md-6">
+                  <p class="form-text">Process audio with FIR filter and preview the result.</p>
+                  <button class="btn btn-primary w-100" id="processFirAudioBtn">
+                    <i class="fas fa-cogs"></i> Process FIR Audio
+                  </button>
+                </div>
+                <div class="col-md-6">
+                  <p class="form-text">Download processed audio (IIR or FIR) in selected format.</p>
+                  <div class="input-group">
+                    <select class="form-select" id="downloadFormat">
+                      <option value="wav">WAV</option>
+                      <option value="mp3">MP3</option>
                     </select>
-                  </div>
-                  <div class="col-md-4">
-                    <button class="btn btn-custom w-100" id="loadPreset">Load Preset</button>
+                    <button class="btn btn-success-custom" id="downloadProcessedAudioBtn">
+                      <i class="fas fa-download"></i> Download
+                    </button>
                   </div>
                 </div>
               </div>
+            </div>
 
-              <!-- Filter Type Selection -->
-              <div class="setting-group">
-                <h5>Filter Type</h5>
+            <!-- Visualization Options -->
+            <div class="setting-group">
+              <h5><i class="fas fa-chart-bar"></i> Visualization Options</h5>
+              <p class="form-text text-muted mt-2">
+                Select which filter type to generate. The generated plots will compare the original audio against the currently selected EQ settings.
+              </p>
+              <div>
                 <div class="form-check form-check-inline">
                   <input class="form-check-input" type="radio" name="filterType" id="filterTypeIIR" value="iir" checked>
                   <label class="form-check-label" for="filterTypeIIR">IIR (Peaking)</label>
@@ -1744,416 +1134,322 @@
                   <input class="form-check-input" type="radio" name="filterType" id="filterTypeFIR" value="fir">
                   <label class="form-check-label" for="filterTypeFIR">FIR (Band-pass/Low-pass/High-pass)</label>
                 </div>
-                <p class="form-text text-muted mt-2">
-                  Lưu ý: Bộ cân bằng thời gian thực trên trình duyệt (Web Audio API) chỉ hỗ trợ bộ lọc IIR. 
-                  Tùy chọn FIR sẽ chỉ áp dụng khi bạn lưu file đã xử lý.
-                </p>
               </div>
-
-              <!-- 10-Band Equalizer Controls -->
-              <div class="setting-group">
-                <h5>Frequency Bands</h5>
-                <div class="row" id="equalizer-bands">
-                  <!-- Sliders will be dynamically generated by JS -->
-                </div>
+              <p class="form-text">Select which charts to generate. The generated plots will compare the original audio against the currently selected EQ settings.</p>
+              <div class="form-check form-check-inline">
+                <input class="form-check-input" type="checkbox" id="displayWaveformPlot" checked>
+                <label class="form-check-label" for="displayWaveformPlot">Time-Domain Waveform</label>
               </div>
-
-              <!-- Process & Download Controls -->
-              <div class="setting-group">
-                <h5>Process & Download</h5>
-                <div class="row">
-                  <div class="col-md-6">
-                    <p class="form-text">Process audio with FIR filter and preview the result.</p>
-                    <button class="btn btn-primary w-100" id="processFirAudioBtn">
-                      <i class="fas fa-cogs"></i> Process FIR Audio
-                    </button>
-                  </div>
-                  <div class="col-md-6">
-                    <p class="form-text">Download processed audio (IIR or FIR) in selected format.</p>
-                    <div class="input-group">
-                      <select class="form-select" id="downloadFormat">
-                        <option value="wav">WAV</option>
-                        <option value="mp3">MP3</option>
-                      </select>
-                      <button class="btn btn-success-custom" id="downloadProcessedAudioBtn">
-                        <i class="fas fa-download"></i> Download
-                      </button>
-                    </div>
-                  </div>
-                </div>
+              <div class="form-check form-check-inline">
+                <input class="form-check-input" type="checkbox" id="displaySpectrogramPlot" checked>
+                <label class="form-check-label" for="displaySpectrogramPlot">Spectrogram</label>
               </div>
-
-              <!-- Visualization Options -->
-              <div class="setting-group">
-                <h5><i class="fas fa-chart-bar"></i> Visualization Options</h5>
-                <p class="form-text">Select which charts to generate. The generated plots will compare the original audio against the currently selected EQ settings.</p>
-                <div class="form-check form-check-inline">
-                  <input class="form-check-input" type="checkbox" id="displayWaveformPlot" checked>
-                  <label class="form-check-label" for="displayWaveformPlot">Time-Domain Waveform</label>
-                </div>
-                <div class="form-check form-check-inline">
-                  <input class="form-check-input" type="checkbox" id="displaySpectrogramPlot" checked>
-                  <label class="form-check-label" for="displaySpectrogramPlot">Spectrogram</label>
-                </div>
-                <div class="mt-3">
-                    <button class="btn btn-info" id="generatePlotsBtn">
-                        <i class="fas fa-chart-line"></i> Generate Visualizations
-                    </button>
-                </div>
-              </div>
-
-              <!-- Equalizer Results Section -->
-              <div id="equalizer-results-section" class="mt-4" style="display: none;">
-                <!-- FIR comparison player will be inserted here -->
-                <!-- Visualization plots will be inserted here -->
+              <div class="mt-3">
+                <button class="btn btn-info" id="generatePlotsBtn">
+                  <i class="fas fa-chart-line"></i> Generate Visualizations
+                </button>
               </div>
             </div>
+
+            <!-- Equalizer Results Section -->
+            <div id="equalizer-results-section" class="mt-4" style="display: none;">
+              <!-- FIR comparison player will be inserted here -->
+              <!-- Visualization plots will be inserted here -->
+            </div>
           </div>
+        </div>
 
-          <!-- Noise Reduction Tab -->
-          <div class="tab-pane fade" id="noise-reduction" role="tabpanel">
-            <div class="module-card">
-              <div class="module-header">
-                <h3><i class="fas fa-magic"></i> Noise Reduction Engine</h3>
-                <p class="mb-0">
-                  AI-powered noise reduction with multiple algorithms
-                </p>
+        <!-- Noise Reduction Tab -->
+        <div class="tab-pane fade" id="noise-reduction" role="tabpanel">
+          <div class="module-card">
+            <div class="module-header">
+              <h3><i class="fas fa-magic"></i> Noise Reduction Engine</h3>
+              <p class="mb-0">
+                AI-powered noise reduction with multiple algorithms
+              </p>
+            </div>
+
+            <!-- 🔧 Noise Reduction Options -->
+            <div class="setting-group">
+              <h5>🔧 Chọn Phương Pháp Giảm Nhiễu</h5>
+              <div class="row g-3">
+                <div class="col-md-6">
+                  <button class="btn btn-primary w-100 h-100" id="processNoiseML"
+                    title="AI/ML của hệ thống - Autoencoder đã train">
+                    <div class="d-flex flex-column align-items-center py-3">
+                      <i class="fas fa-brain fa-2x mb-2"></i>
+                      <h5 class="mb-1">AI/ML Hệ Thống</h5>
+                      <small class="text-light">Autoencoder Neural Network</small>
+                      <small class="text-light">✅ Offline • Chất lượng cao</small>
+                    </div>
+                  </button>
+                </div>
+                <div class="col-md-6">
+                  <button class="btn btn-success w-100 h-100" id="processNoiseLibrary"
+                    title="Thư viện giảm nhiễu tốt nhất">
+                    <div class="d-flex flex-column align-items-center py-3">
+                      <i class="fas fa-magic fa-2x mb-2"></i>
+                      <h5 class="mb-1">Thư Viện Tốt Nhất</h5>
+                      <small class="text-light">NoiseReduce Library</small>
+                      <small class="text-light">🚀 Nhanh • Hiệu quả</small>
+                    </div>
+                  </button>
+                </div>
               </div>
 
-              <!-- 🔧 Noise Reduction Options -->
-              <div class="setting-group">
-                <h5>🔧 Chọn Phương Pháp Giảm Nhiễu</h5>
-                <div class="row g-3">
-                  <div class="col-md-6">
-                    <button
-                      class="btn btn-primary w-100 h-100"
-                      id="processNoiseML"
-                      title="AI/ML của hệ thống - Autoencoder đã train"
-                    >
-                      <div class="d-flex flex-column align-items-center py-3">
-                        <i class="fas fa-brain fa-2x mb-2"></i>
-                        <h5 class="mb-1">AI/ML Hệ Thống</h5>
-                        <small class="text-light"
-                          >Autoencoder Neural Network</small
-                        >
-                        <small class="text-light"
-                          >✅ Offline • Chất lượng cao</small
-                        >
-                      </div>
-                    </button>
-                  </div>
-                  <div class="col-md-6">
-                    <button
-                      class="btn btn-success w-100 h-100"
-                      id="processNoiseLibrary"
-                      title="Thư viện giảm nhiễu tốt nhất"
-                    >
-                      <div class="d-flex flex-column align-items-center py-3">
-                        <i class="fas fa-magic fa-2x mb-2"></i>
-                        <h5 class="mb-1">Thư Viện Tốt Nhất</h5>
-                        <small class="text-light">NoiseReduce Library</small>
-                        <small class="text-light">🚀 Nhanh • Hiệu quả</small>
-                      </div>
-                    </button>
-                  </div>
-                </div>
-
-                <!-- Reduction Level Control -->
-                <div class="row mt-3">
-                  <div class="col-md-6 offset-md-3">
-                    <div class="slider-container">
-                      <div class="slider-label">
-                        <span>Mức Độ Giảm Nhiễu</span>
-                        <span id="reductionValue">0.7</span>
-                      </div>
-                      <input
-                        type="range"
-                        class="form-range"
-                        id="reductionLevel"
-                        min="0.1"
-                        max="1.0"
-                        value="0.7"
-                        step="0.1"
-                      />
+              <!-- Reduction Level Control -->
+              <div class="row mt-3">
+                <div class="col-md-6 offset-md-3">
+                  <div class="slider-container">
+                    <div class="slider-label">
+                      <span>Mức Độ Giảm Nhiễu</span>
+                      <span id="reductionValue">0.7</span>
                     </div>
-                  </div>
-                </div>
-
-                <!-- Info Panel -->
-                <div class="mt-3">
-                  <div class="alert alert-info">
-                    <div class="row">
-                      <div class="col-md-6">
-                        <strong>🧠 AI/ML Hệ Thống:</strong><br />
-                        • Autoencoder Neural Network<br />
-                        • Đã train sẵn<br />
-                        • Chất lượng tốt, offline
-                      </div>
-                      <div class="col-md-6">
-                        <strong>📦 Thư Viện Tốt Nhất:</strong><br />
-                        • NoiseReduce library<br />
-                        • Thuật toán spectral subtraction<br />
-                        • Xử lý nhanh, hiệu quả
-                      </div>
-                    </div>
+                    <input type="range" class="form-range" id="reductionLevel" min="0.1" max="1.0" value="0.7"
+                      step="0.1" />
                   </div>
                 </div>
               </div>
 
-              <!-- Noise Reduction Results -->
-              <div id="noiseAnalysis" style="display: none">
-                <div class="result-card">
-                  <h5>
-                    <i class="fas fa-check-circle"></i> ✅ Noise Reduction
-                    Complete - Phân Tích Chi Tiết
-                  </h5>
+              <!-- Info Panel -->
+              <div class="mt-3">
+                <div class="alert alert-info">
+                  <div class="row">
+                    <div class="col-md-6">
+                      <strong>🧠 AI/ML Hệ Thống:</strong><br />
+                      • Autoencoder Neural Network<br />
+                      • Đã train sẵn<br />
+                      • Chất lượng tốt, offline
+                    </div>
+                    <div class="col-md-6">
+                      <strong>📦 Thư Viện Tốt Nhất:</strong><br />
+                      • NoiseReduce library<br />
+                      • Thuật toán spectral subtraction<br />
+                      • Xử lý nhanh, hiệu quả
+                    </div>
+                  </div>
+                </div>
+              </div>
+            </div>
 
-                  <!-- Note: Các container sau sẽ được tạo động bởi JavaScript:
+            <!-- Noise Reduction Results -->
+            <div id="noiseAnalysis" style="display: none">
+              <div class="result-card">
+                <h5>
+                  <i class="fas fa-check-circle"></i> ✅ Noise Reduction
+                  Complete - Phân Tích Chi Tiết
+                </h5>
+
+                <!-- Note: Các container sau sẽ được tạo động bởi JavaScript:
                        - audioComparisonPlayer: 2 audio player để nghe so sánh
                        - comparisonMetrics: Bảng so sánh các metrics
                        - technicalExplanation: Giải thích kỹ thuật với accordion
                        - advancedComparisonChart: Biểu đồ phân tích chi tiết
                   -->
 
-                  <div class="alert alert-success mt-3">
-                    <h6>
-                      <i class="fas fa-info-circle"></i> Thông tin Noise
-                      Reduction:
-                    </h6>
-                    <p class="mb-0">
-                      Dưới đây là kết quả phân tích chi tiết quá trình giảm
-                      nhiễu. Bạn có thể nghe so sánh 2 file audio, xem các chỉ
-                      số kỹ thuật, và hiểu rõ thuật toán đã được áp dụng như thế
-                      nào.
-                    </p>
-                  </div>
+                <div class="alert alert-success mt-3">
+                  <h6>
+                    <i class="fas fa-info-circle"></i> Thông tin Noise
+                    Reduction:
+                  </h6>
+                  <p class="mb-0">
+                    Dưới đây là kết quả phân tích chi tiết quá trình giảm
+                    nhiễu. Bạn có thể nghe so sánh 2 file audio, xem các chỉ
+                    số kỹ thuật, và hiểu rõ thuật toán đã được áp dụng như thế
+                    nào.
+                  </p>
                 </div>
-              </div>
-
-              <!-- Legacy Simple Results (backup) -->
-              <div id="legacyNoiseResults" style="display: none">
-                <div class="row">
-                  <div class="col-md-6">
-                    <h4>
-                      📊 <strong>SNR Improvement:</strong>
-                      <span
-                        id="snrImprovement"
-                        class="text-success fs-4"
-                      ></span>
-                      dB
-                    </h4>
-                    <p>
-                      <strong>🔊 Original SNR:</strong>
-                      <span id="snrEstimate"></span> dB
-                    </p>
-                    <p>
-                      <strong>🎚️ Dynamic Range:</strong>
-                      <span id="dynamicRange"></span> dB
-                    </p>
-                  </div>
-                  <div class="col-md-6">
-                    <p>
-                      <strong>🧠 Method Used:</strong>
-                      <span
-                        id="methodUsedNoise"
-                        class="badge bg-primary"
-                      ></span>
-                    </p>
-                    <p>
-                      <strong>⚡ Processing:</strong>
-                      <span class="text-success">✅ Success</span>
-                    </p>
-                    <p>
-                      <strong>💾 Output File:</strong>
-                      <span class="text-info">processed_nr.wav</span>
-                    </p>
-                  </div>
-                </div>
-              </div>
-
-              <!-- Simple Before/After Comparison -->
-              <div
-                class="chart-container"
-                id="noiseComparisonChart"
-                style="display: none"
-              >
-                <!-- Will be populated with comparison image by JavaScript -->
               </div>
             </div>
+
+            <!-- Legacy Simple Results (backup) -->
+            <div id="legacyNoiseResults" style="display: none">
+              <div class="row">
+                <div class="col-md-6">
+                  <h4>
+                    📊 <strong>SNR Improvement:</strong>
+                    <span id="snrImprovement" class="text-success fs-4"></span>
+                    dB
+                  </h4>
+                  <p>
+                    <strong>🔊 Original SNR:</strong>
+                    <span id="snrEstimate"></span> dB
+                  </p>
+                  <p>
+                    <strong>🎚️ Dynamic Range:</strong>
+                    <span id="dynamicRange"></span> dB
+                  </p>
+                </div>
+                <div class="col-md-6">
+                  <p>
+                    <strong>🧠 Method Used:</strong>
+                    <span id="methodUsedNoise" class="badge bg-primary"></span>
+                  </p>
+                  <p>
+                    <strong>⚡ Processing:</strong>
+                    <span class="text-success">✅ Success</span>
+                  </p>
+                  <p>
+                    <strong>💾 Output File:</strong>
+                    <span class="text-info">processed_nr.wav</span>
+                  </p>
+                </div>
+              </div>
+            </div>
+
+            <!-- Simple Before/After Comparison -->
+            <div class="chart-container" id="noiseComparisonChart" style="display: none">
+              <!-- Will be populated with comparison image by JavaScript -->
+            </div>
           </div>
+        </div>
 
-          <!-- Genre Classification Tab -->
-          <div class="tab-pane fade" id="genre-classification" role="tabpanel">
-            <div class="module-card">
-              <div class="module-header">
-                <h3>
-                  <i class="fas fa-brain"></i> Genre Classification Engine
-                </h3>
-                <p class="mb-0">
-                  AI-powered music genre recognition with multiple algorithms
-                </p>
-              </div>
+        <!-- Genre Classification Tab -->
+        <div class="tab-pane fade" id="genre-classification" role="tabpanel">
+          <div class="module-card">
+            <div class="module-header">
+              <h3>
+                <i class="fas fa-brain"></i> Genre Classification Engine
+              </h3>
+              <p class="mb-0">
+                AI-powered music genre recognition with multiple algorithms
+              </p>
+            </div>
 
-              <!-- 🎯 OPTIMIZED Genre Classification Options -->
-              <div class="setting-group">
-                <h5>🎵 HỆ THỐNG NHẬN DIỆN TỐI ƯU</h5>
-                <div class="row g-3">
-                  <div class="col-md-6">
-                    <button
-                      class="btn btn-primary w-100 h-100"
-                      id="classifyML"
-                      title="Mô hình ML: Random Forest được train trên GTZAN dataset"
-                    >
-                      <div class="d-flex flex-column align-items-center py-3">
-                        <i class="fas fa-robot fa-2x mb-2"></i>
-                        <h5 class="mb-1">🤖 Mô Hình ML</h5>
-                        <small class="text-light">Random Forest từ GTZAN</small>
-                        <small class="text-light"
-                          >✅ Đã train • Dữ liệu thực</small
-                        >
-                      </div>
-                    </button>
-                  </div>
-                  <div class="col-md-6">
-                    <button
-                      class="btn btn-success w-100 h-100"
-                      id="classifyLibrary"
-                      title="Musicnn: Deep Learning model pre-trained cho âm nhạc"
-                    >
-                      <div class="d-flex flex-column align-items-center py-3">
-                        <i class="fas fa-brain fa-2x mb-2"></i>
-                        <h5 class="mb-1">🧠 Musicnn AI</h5>
-                        <small class="text-light"
-                          >Deep Learning Pre-trained</small
-                        >
-                        <small class="text-light"
-                          >🚀 Cao cấp • 92% độ chính xác</small
-                        >
-                      </div>
-                    </button>
-                  </div>
-                </div>
-
-                <!-- Updated Info Panel -->
-                <div class="mt-3">
-                  <div class="alert alert-success">
-                    <div class="row">
-                      <div class="col-md-6">
-                        <strong>🤖 Mô Hình ML:</strong><br />
-                        • Random Forest classifier<br />
-                        • Đã train trên GTZAN dataset<br />
-                        • 1000 bài nhạc • 10 thể loại
-                      </div>
-                      <div class="col-md-6">
-                        <strong>🧠 Musicnn AI:</strong><br />
-                        • Deep Learning pre-trained<br />
-                        • Musicnn neural network<br />
-                        • State-of-the-art accuracy 92%
-                      </div>
+            <!-- 🎯 OPTIMIZED Genre Classification Options -->
+            <div class="setting-group">
+              <h5>🎵 HỆ THỐNG NHẬN DIỆN TỐI ƯU</h5>
+              <div class="row g-3">
+                <div class="col-md-6">
+                  <button class="btn btn-primary w-100 h-100" id="classifyML"
+                    title="Mô hình ML: Random Forest được train trên GTZAN dataset">
+                    <div class="d-flex flex-column align-items-center py-3">
+                      <i class="fas fa-robot fa-2x mb-2"></i>
+                      <h5 class="mb-1">🤖 Mô Hình ML</h5>
+                      <small class="text-light">Random Forest từ GTZAN</small>
+                      <small class="text-light">✅ Đã train • Dữ liệu thực</small>
                     </div>
-                  </div>
+                  </button>
+                </div>
+                <div class="col-md-6">
+                  <button class="btn btn-success w-100 h-100" id="classifyLibrary"
+                    title="Musicnn: Deep Learning model pre-trained cho âm nhạc">
+                    <div class="d-flex flex-column align-items-center py-3">
+                      <i class="fas fa-brain fa-2x mb-2"></i>
+                      <h5 class="mb-1">🧠 Musicnn AI</h5>
+                      <small class="text-light">Deep Learning Pre-trained</small>
+                      <small class="text-light">🚀 Cao cấp • 92% độ chính xác</small>
+                    </div>
+                  </button>
                 </div>
               </div>
 
-              <!-- Supported Genres -->
-              <div class="setting-group">
-                <h5>Supported Genres</h5>
-                <div class="d-flex flex-wrap">
-                  <span class="genre-badge">Blues</span>
-                  <span class="genre-badge">Classical</span>
-                  <span class="genre-badge">Country</span>
-                  <span class="genre-badge">Disco</span>
-                  <span class="genre-badge">Hip-hop</span>
-                  <span class="genre-badge">Jazz</span>
-                  <span class="genre-badge">Metal</span>
-                  <span class="genre-badge">Pop</span>
-                  <span class="genre-badge">Reggae</span>
-                  <span class="genre-badge">Rock</span>
-                </div>
-              </div>
-
-              <!-- Classification Results -->
-              <div id="genreResults" style="display: none">
-                <div class="result-card">
-                  <h5><i class="fas fa-trophy"></i> Classification Results</h5>
+              <!-- Updated Info Panel -->
+              <div class="mt-3">
+                <div class="alert alert-success">
                   <div class="row">
-                    <div class="col-md-8">
-                      <h3>
-                        🎵 Predicted Genre:
-                        <span id="predictedGenre" class="genre-badge"></span>
-                      </h3>
-                      <p>
-                        <strong>🎯 Confidence:</strong>
-                        <span
-                          id="genreConfidence"
-                          class="text-success fs-5"
-                        ></span
-                        >%
-                      </p>
-                      <div id="confidenceExplain"></div>
-                      <p>
-                        <strong>🔧 Method:</strong>
-                        <span id="methodUsed"></span>
-                      </p>
-                      <p>
-                        <strong>⏱️ Status:</strong>
-                        <span class="text-success"
-                          >✅ Classification Complete</span
-                        >
-                      </p>
+                    <div class="col-md-6">
+                      <strong>🤖 Mô Hình ML:</strong><br />
+                      • Random Forest classifier<br />
+                      • Đã train trên GTZAN dataset<br />
+                      • 1000 bài nhạc • 10 thể loại
                     </div>
-                    <div class="col-md-4">
-                      <div class="confidence-meter">
-                        <div class="progress" style="height: 30px">
-                          <div
-                            id="confidenceBar"
-                            class="progress-bar progress-bar-striped progress-bar-animated bg-success"
-                            role="progressbar"
-                            style="width: 0%"
-                          >
-                            <span class="fw-bold" id="confidenceText"></span>
-                          </div>
+                    <div class="col-md-6">
+                      <strong>🧠 Musicnn AI:</strong><br />
+                      • Deep Learning pre-trained<br />
+                      • Musicnn neural network<br />
+                      • State-of-the-art accuracy 92%
+                    </div>
+                  </div>
+                </div>
+              </div>
+            </div>
+
+            <!-- Supported Genres -->
+            <div class="setting-group">
+              <h5>Supported Genres</h5>
+              <div class="d-flex flex-wrap">
+                <span class="genre-badge">Blues</span>
+                <span class="genre-badge">Classical</span>
+                <span class="genre-badge">Country</span>
+                <span class="genre-badge">Disco</span>
+                <span class="genre-badge">Hip-hop</span>
+                <span class="genre-badge">Jazz</span>
+                <span class="genre-badge">Metal</span>
+                <span class="genre-badge">Pop</span>
+                <span class="genre-badge">Reggae</span>
+                <span class="genre-badge">Rock</span>
+              </div>
+            </div>
+
+            <!-- Classification Results -->
+            <div id="genreResults" style="display: none">
+              <div class="result-card">
+                <h5><i class="fas fa-trophy"></i> Classification Results</h5>
+                <div class="row">
+                  <div class="col-md-8">
+                    <h3>
+                      🎵 Predicted Genre:
+                      <span id="predictedGenre" class="genre-badge"></span>
+                    </h3>
+                    <p>
+                      <strong>🎯 Confidence:</strong>
+                      <span id="genreConfidence" class="text-success fs-5"></span>%
+                    </p>
+                    <div id="confidenceExplain"></div>
+                    <p>
+                      <strong>🔧 Method:</strong>
+                      <span id="methodUsed"></span>
+                    </p>
+                    <p>
+                      <strong>⏱️ Status:</strong>
+                      <span class="text-success">✅ Classification Complete</span>
+                    </p>
+                  </div>
+                  <div class="col-md-4">
+                    <div class="confidence-meter">
+                      <div class="progress" style="height: 30px">
+                        <div id="confidenceBar"
+                          class="progress-bar progress-bar-striped progress-bar-animated bg-success" role="progressbar"
+                          style="width: 0%">
+                          <span class="fw-bold" id="confidenceText"></span>
                         </div>
                       </div>
                     </div>
                   </div>
-                  <div id="genreDetailedReport" class="mt-4"></div>
                 </div>
+                <div id="genreDetailedReport" class="mt-4"></div>
               </div>
+            </div>
 
-              <!-- Model Information -->
-              <div class="setting-group">
-                <h5>Model Information</h5>
-                <div class="row">
-                  <div class="col-md-6">
-                    <p>
-                      <span class="status-indicator" id="rfModelStatus"></span
-                      >Random Forest Model
-                    </p>
-                    <p>
-                      <span class="status-indicator" id="svmModelStatus"></span
-                      >SVM Model
-                    </p>
-                    <p>
-                      <span class="status-indicator" id="nnModelStatus"></span
-                      >Neural Network Model
-                    </p>
-                  </div>
-                  <div class="col-md-6">
-                    <p>
-                      <span class="status-indicator" id="lstmModelStatus"></span
-                      >LSTM Model
-                    </p>
-                    <p>
-                      <span class="status-indicator" id="cnnModelStatus"></span
-                      >CNN Model
-                    </p>
-                    <p><strong>Training Accuracy:</strong> ~85%</p>
-                  </div>
+            <!-- Model Information -->
+            <div class="setting-group">
+              <h5>Model Information</h5>
+              <div class="row">
+                <div class="col-md-6">
+                  <p>
+                    <span class="status-indicator" id="rfModelStatus"></span>Random Forest Model
+                  </p>
+                  <p>
+                    <span class="status-indicator" id="svmModelStatus"></span>SVM Model
+                  </p>
+                  <p>
+                    <span class="status-indicator" id="nnModelStatus"></span>Neural Network Model
+                  </p>
+                </div>
+                <div class="col-md-6">
+                  <p>
+                    <span class="status-indicator" id="lstmModelStatus"></span>LSTM Model
+                  </p>
+                  <p>
+                    <span class="status-indicator" id="cnnModelStatus"></span>CNN Model
+                  </p>
+                  <p><strong>Training Accuracy:</strong> ~85%</p>
                 </div>
               </div>
             </div>
           </div>
+        </div>
 
           <!-- Real-time Processing Tab -->
           <div class="tab-pane fade show active" id="realtime" role="tabpanel">
@@ -2456,7 +1752,89 @@
                 </div>
               </div>
             </div>
+
+            <!-- Real-time Controls -->
+            <div class="realtime-controls">
+              <div class="row">
+                <div class="col-md-6 d-flex align-items-end">
+                  <button class="btn btn-success-custom w-100" id="startRealtime">
+                    <i class="fas fa-play"></i> Start Real-time Processing
+                  </button>
+                </div>
+                <div class="col-md-6 d-flex align-items-end">
+                  <button class="btn btn-danger-custom w-100" id="stopRealtime" disabled>
+                    <i class="fas fa-stop"></i> Stop Processing
+                  </button>
+                </div>
+              </div>
+            </div>
+
+            <!-- Live Statistics -->
+            <div id="realtimeStats" class="setting-group" style="display: none">
+              <h5>Live Processing Statistics</h5>
+              <div class="row">
+                <div class="col-md-3">
+                  <div class="card text-center">
+                    <div class="card-body">
+                      <h3 id="avgLatency" class="text-primary">0 ms</h3>
+                      <p class="card-text">Avg Latency</p>
+                    </div>
+                  </div>
+                </div>
+                <div class="col-md-3">
+                  <div class="card text-center">
+                    <div class="card-body">
+                      <h3 id="chunksProcessed" class="text-success">0</h3>
+                      <p class="card-text">Chunks Processed</p>
+                    </div>
+                  </div>
+                </div>
+                <div class="col-md-3">
+                  <div class="card text-center">
+                    <div class="card-body">
+                      <h3 id="processingErrors" class="text-danger">0</h3>
+                      <p class="card-text">Errors</p>
+                    </div>
+                  </div>
+                </div>
+                <div class="col-md-3">
+                  <div class="card text-center">
+                    <div class="card-body">
+                      <h3 id="currentGenre" class="text-info">-</h3>
+                      <p class="card-text">Current Genre</p>
+                    </div>
+                  </div>
+                </div>
+              </div>
+            </div>
+
+            <!-- Audio Visualizer -->
+            <div class="audio-visualizer">
+              <canvas id="audioVisualizer"></canvas>
+            </div>
+
+            <!-- Recording Controls -->
+            <div class="setting-group">
+              <h5>Recording Controls</h5>
+              <div class="row">
+                <div class="col-md-4">
+                  <button class="btn btn-danger-custom w-100" id="startRecording">
+                    <i class="fas fa-record-vinyl"></i> Start Recording
+                  </button>
+                </div>
+                <div class="col-md-4">
+                  <button class="btn btn-warning-custom w-100" id="stopRecording" disabled>
+                    <i class="fas fa-stop"></i> Stop Recording
+                  </button>
+                </div>
+                <div class="col-md-4">
+                  <input type="number" class="form-control" id="recordDuration" placeholder="Duration (seconds)" min="1"
+                    max="300" value="30" />
+                </div>
+              </div>
+            </div>
           </div>
+        </div>
 
           <!-- Analysis Tab -->
           <div class="tab-pane fade" id="analysis" role="tabpanel">
@@ -2510,57 +1888,53 @@
                       </label>
                     </div>
                   </div>
-                  <div class="col-md-6">
-                    <div class="form-check">
-                      <input
-                        class="form-check-input"
-                        type="checkbox"
-                        id="analyzeMFCC"
-                        checked
-                      />
-                      <label class="form-check-label" for="analyzeMFCC">
-                        MFCC Features
-                      </label>
-                    </div>
-                    <div class="form-check">
-                      <input
-                        class="form-check-input"
-                        type="checkbox"
-                        id="analyzeChroma"
-                        checked
-                      />
-                      <label class="form-check-label" for="analyzeChroma">
-                        Chroma Features
-                      </label>
-                    </div>
-                    <div class="form-check">
-                      <input
-                        class="form-check-input"
-                        type="checkbox"
-                        id="analyzeTempo"
-                      />
-                      <label class="form-check-label" for="analyzeTempo">
-                        Tempo & Beat Analysis
-                      </label>
-                    </div>
+                  <div class="form-check">
+                    <input class="form-check-input" type="checkbox" id="analyzeSpectrogram" checked />
+                    <label class="form-check-label" for="analyzeSpectrogram">
+                      Spectrogram Analysis
+                    </label>
+                  </div>
+                  <div class="form-check">
+                    <input class="form-check-input" type="checkbox" id="analyzeFrequency" checked />
+                    <label class="form-check-label" for="analyzeFrequency">
+                      Frequency Analysis
+                    </label>
                   </div>
                 </div>
-                <div class="row mt-3">
-                  <div class="col-md-6 d-flex align-items-end">
-                    <button
-                      class="btn btn-success-custom w-100"
-                      id="runAnalysis"
-                    >
-                      <i class="fas fa-play"></i> Run Analysis
-                    </button>
+                <div class="col-md-6">
+                  <div class="form-check">
+                    <input class="form-check-input" type="checkbox" id="analyzeMFCC" checked />
+                    <label class="form-check-label" for="analyzeMFCC">
+                      MFCC Features
+                    </label>
                   </div>
-                  <div class="col-md-6 d-flex align-items-end">
-                    <button class="btn btn-info w-100" id="exportResults">
-                      <i class="fas fa-download"></i> Export Results
-                    </button>
+                  <div class="form-check">
+                    <input class="form-check-input" type="checkbox" id="analyzeChroma" checked />
+                    <label class="form-check-label" for="analyzeChroma">
+                      Chroma Features
+                    </label>
+                  </div>
+                  <div class="form-check">
+                    <input class="form-check-input" type="checkbox" id="analyzeTempo" />
+                    <label class="form-check-label" for="analyzeTempo">
+                      Tempo & Beat Analysis
+                    </label>
                   </div>
                 </div>
               </div>
+              <div class="row mt-3">
+                <div class="col-md-6 d-flex align-items-end">
+                  <button class="btn btn-success-custom w-100" id="runAnalysis">
+                    <i class="fas fa-play"></i> Run Analysis
+                  </button>
+                </div>
+                <div class="col-md-6 d-flex align-items-end">
+                  <button class="btn btn-info w-100" id="exportResults">
+                    <i class="fas fa-download"></i> Export Results
+                  </button>
+                </div>
+              </div>
+            </div>
 
               <!-- Analysis Results - Column Layout -->
               <div id="analysisResults" style="display: none">
@@ -2611,43 +1985,51 @@
                   </div>
                 </div>
               </div>
+              <div class="row">
+                <div class="col-md-6">
+                  <div class="chart-container">
+                    <canvas id="frequencyChart"></canvas>
+                  </div>
+                </div>
+                <div class="col-md-6">
+                  <div class="chart-container">
+                    <canvas id="featuresChart"></canvas>
+                  </div>
+                </div>
+              </div>
+            </div>
 
-              <!-- Processing Summary -->
-              <div
-                id="processingSummary"
-                class="result-card"
-                style="display: none"
-              >
-                <h5><i class="fas fa-chart-bar"></i> Processing Summary</h5>
-                <div class="row">
-                  <div class="col-md-6">
-                    <p>
-                      <strong>Total Processing Time:</strong>
-                      <span id="totalTime"></span> seconds
-                    </p>
-                    <p>
-                      <strong>Equalizer Applied:</strong>
-                      <span id="eqApplied"></span>
-                    </p>
-                    <p>
-                      <strong>Noise Reduction:</strong>
-                      <span id="noiseApplied"></span>
-                    </p>
-                  </div>
-                  <div class="col-md-6">
-                    <p>
-                      <strong>Genre Classification:</strong>
-                      <span id="genreApplied"></span>
-                    </p>
-                    <p>
-                      <strong>SNR Improvement:</strong>
-                      <span id="snrImprovement"></span> dB
-                    </p>
-                    <p>
-                      <strong>Overall Quality:</strong>
-                      <span id="overallQuality"></span>
-                    </p>
-                  </div>
+            <!-- Processing Summary -->
+            <div id="processingSummary" class="result-card" style="display: none">
+              <h5><i class="fas fa-chart-bar"></i> Processing Summary</h5>
+              <div class="row">
+                <div class="col-md-6">
+                  <p>
+                    <strong>Total Processing Time:</strong>
+                    <span id="totalTime"></span> seconds
+                  </p>
+                  <p>
+                    <strong>Equalizer Applied:</strong>
+                    <span id="eqApplied"></span>
+                  </p>
+                  <p>
+                    <strong>Noise Reduction:</strong>
+                    <span id="noiseApplied"></span>
+                  </p>
+                </div>
+                <div class="col-md-6">
+                  <p>
+                    <strong>Genre Classification:</strong>
+                    <span id="genreApplied"></span>
+                  </p>
+                  <p>
+                    <strong>SNR Improvement:</strong>
+                    <span id="snrImprovement"></span> dB
+                  </p>
+                  <p>
+                    <strong>Overall Quality:</strong>
+                    <span id="overallQuality"></span>
+                  </p>
                 </div>
               </div>
             </div>
@@ -2655,6 +2037,7 @@
         </div>
       </div>
     </div>
+  </div>
 
     <!-- Include JavaScript -->
     <script src="https://cdn.jsdelivr.net/npm/bootstrap@5.1.3/dist/js/bootstrap.bundle.min.js"></script>

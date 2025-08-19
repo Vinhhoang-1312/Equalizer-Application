@@ -350,13 +350,13 @@ class AdvancedGenreClassifier:
             # Normalize audio
             audio = librosa.util.normalize(audio)
             
-            # Remove silence from beginning and end
-            audio, _ = librosa.effects.trim(audio, top_db=20)
+            # # Remove silence from beginning and end
+            # audio, _ = librosa.effects.trim(audio, top_db=20)
             
-            # Ensure minimum length (3 seconds) for reliable feature extraction
-            min_length = 3 * self.sample_rate
-            if len(audio) < min_length:
-                audio = np.pad(audio, (0, min_length - len(audio)), mode='constant')
+            # # Ensure minimum length (3 seconds) for reliable feature extraction
+            # min_length = 3 * self.sample_rate
+            # if len(audio) < min_length:
+            #     audio = np.pad(audio, (0, min_length - len(audio)), mode='constant')
             
             # Extract features (cập nhật để match với model)
             features = self._extract_advanced_features(audio)

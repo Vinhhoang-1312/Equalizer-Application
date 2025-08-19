@@ -592,6 +592,37 @@ class MainApplication:
                     return jsonify({'error': 'File not found'}), 404
             except Exception as e:
                 return jsonify({'error': str(e)}), 500
+
+        @self.app.route('/api/equalizer/download_processed_audio', methods=['POST'])
+        def download_processed_audio():
+            """Download processed audio after equalizer application."""
+            try:
+                if self.current_audio is None:
+                    return jsonify({'error': 'No audio file loaded'}), 400
+
+                data = request.get_json()
+                gains = data.get('gains', {})
+                filter_type = data.get('filter_type', 'iir')
+                download_format = data.get('format', 'wav')
+
+                processed_audio = self.equalizer_engine.apply_equalizer(
+                    self.current_audio, gains, filter_type=filter_type
+                )
+
+                timestamp = int(time.time())
+                output_filename = f'processed_eq_{timestamp}.{download_format}'
+                output_path = os.path.join(self.app.config['UPLOAD_FOLDER'], output_filename)
+
+                # Ensure the format is supported by soundfile
+                if download_format not in ['wav', 'flac', 'ogg']:
+                    return jsonify({'error': f'Unsupported download format: {download_format}'}), 400
+
+                sf.write(output_path, processed_audio, self.sample_rate, format=download_format.upper())
+
+                return send_file(output_path, as_attachment=True, download_name=output_filename)
+
+            except Exception as e:
+                return jsonify({'error': str(e)}), 500
         
         @self.app.route('/api/genre_classification/info', methods=['GET'])
         def get_genre_classification_info():
