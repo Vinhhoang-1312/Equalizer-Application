@@ -108,7 +108,7 @@ class MainApplication:
                     duration = len(audio) / self.sample_rate
                     rms = np.sqrt(np.mean(audio**2))
                     total_samples = len(audio)
-                    channels = 1 if len(audio.shape) == 1 else audio.shape[1]
+                    channels = 1 if len(audio.shape) == 1 else audio.shape[0]
                     
                     return jsonify({
                         'success': True,
