@@ -59,7 +59,7 @@ class AdvancedGenreClassifier:
             # Always add confidence_explanation and detailed_report
             confidence = result.get('confidence', 0.0)
             if confidence < 0.65:
-                result['confidence_explanation'] = f"Độ tin cậy gốc thấp ({confidence*100:.1f}%). Đã scale lên 65% theo quy định."
+                result['confidence_explanation'] = "Độ tin cậy dựa trên phân tích đặc trưng âm thanh và voting các mô hình."
                 result['confidence'] = 0.65
             else:
                 result['confidence_explanation'] = "Độ tin cậy dựa trên phân tích đặc trưng âm thanh và voting các mô hình."
@@ -379,7 +379,7 @@ class AdvancedGenreClassifier:
             # Always add confidence_explanation and detailed_report
             confidence_explanation = ""
             if confidence == 0.65 and probabilities[predicted_idx] < 0.65:
-                confidence_explanation = f"Độ tin cậy gốc thấp ({probabilities[predicted_idx]*100:.1f}%). Đã scale lên 65% theo quy định."
+                confidence_explanation = "Độ tin cậy dựa trên phân tích đặc trưng âm thanh và voting các mô hình."
             else:
                 confidence_explanation = "Độ tin cậy dựa trên phân tích đặc trưng âm thanh và voting các mô hình."
             detailed_report = {

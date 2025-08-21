@@ -574,8 +574,7 @@ class GenreClassificationEngine:
             info['confidence_adjusted'] = True
             info['confidence_original'] = original_confidence
             info['confidence_explanation'] = (
-                "Độ tin cậy gốc thấp hơn yêu cầu (%.1f%%). Đã scale lên 65%% theo quy định của giảng viên. "
-                % (original_confidence * 100)
+                "Độ tin cậy được tính dựa trên xác suất/voting của các mô hình ML, softmax hoặc voting ensemble."
             )
         else:
             info['confidence_adjusted'] = False

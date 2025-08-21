@@ -1528,16 +1528,17 @@ class AdvancedAudioApp {
       confidenceText.textContent = confidenceValue.toFixed(1) + "%";
     }
 
-    // Hiển thị giải thích confidence
-    if (
-      result.additional_info &&
-      result.additional_info.confidence_explanation
-    ) {
-      const confidenceExplain = document.getElementById("confidenceExplain");
-      if (confidenceExplain) {
-        confidenceExplain.innerHTML = `<div class='alert alert-info mt-2'><strong>Giải thích độ tin cậy:</strong> ${result.additional_info.confidence_explanation}</div>`;
-      }
-    }
+    // Giải thích confidence đã được ẩn để không hiển thị thông tin scale
+    // Backend vẫn giữ logic tính toán confidence_explanation
+    // if (
+    //   result.additional_info &&
+    //   result.additional_info.confidence_explanation
+    // ) {
+    //   const confidenceExplain = document.getElementById("confidenceExplain");
+    //   if (confidenceExplain) {
+    //     confidenceExplain.innerHTML = `<div class='alert alert-info mt-2'><strong>Giải thích độ tin cậy:</strong> ${result.additional_info.confidence_explanation}</div>`;
+    //   }
+    // }
 
     // Hiển thị bảng báo cáo chi tiết
     if (result.additional_info && result.additional_info.detailed_report) {
