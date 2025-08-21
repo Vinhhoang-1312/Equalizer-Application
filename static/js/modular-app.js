@@ -2663,6 +2663,11 @@ class AdvancedAudioApp {
     }
 
     try {
+      // thêm loading vào nút #Run Analysis: disable button và Đổi fa-play thành icon loading
+      document.getElementById("runAnalysis").disabled = true;
+      document.getElementById("runAnalysis").querySelector('i').classList.add('fa-spinner','fa-spin');
+      document.getElementById("runAnalysis").querySelector('i').classList.remove('fa-play');
+
       this.showProcessingStatus("Running comprehensive audio analysis...");
 
       // Get selected analysis options
@@ -2697,6 +2702,10 @@ class AdvancedAudioApp {
       this.showError("Analysis failed: " + error.message);
     } finally {
       this.hideProcessingStatus();
+      // bỏ loading vào nút #Run Analysis: enable button và Đổi fa-play thành icon loading
+      document.getElementById("runAnalysis").disabled = false;
+      document.getElementById("runAnalysis").querySelector('i').classList.add('fa-play');
+      document.getElementById("runAnalysis").querySelector('i').classList.remove('fa-spinner','fa-spin');
     }
   }
 
