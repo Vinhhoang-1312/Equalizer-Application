@@ -820,7 +820,7 @@ class AdvancedAudioApp {
         this.processNoiseWithMethod("library");
       });
   }
-
+  // Hàm này không dùng
   async processNoiseReduction() {
     if (!this.currentFile) {
       this.showError("Please upload an audio file first");
@@ -1064,7 +1064,6 @@ class AdvancedAudioApp {
                   "N/A",
                   4
                 )}
-              </div>
               </div>
             </div>
           </div>
@@ -1389,6 +1388,18 @@ class AdvancedAudioApp {
         method === "ml"
           ? "Đang giảm nhiễu với AI/ML hệ thống..."
           : "Đang giảm nhiễu với thư viện tốt nhất...";
+      // Disable nút và thay icon fa-brain hoặc fa-magic thành trạng thái loading
+      document.getElementById("processNoiseML").disabled = true;
+      document.getElementById("processNoiseLibrary").disabled = true;
+      if(method === "ml") {
+        document.getElementById('processNoiseML').querySelector('i').classList.remove('fa-brain');
+        document.getElementById('processNoiseML').querySelector('i').classList.add('fa-spinner', 'fa-spin');
+        document.getElementById('processNoiseML').querySelector('h5').textContent = "Đang giảm nhiễu với AI/ML hệ thống...";
+      } else {
+        document.getElementById('processNoiseLibrary').querySelector('i').classList.remove('fa-magic');
+        document.getElementById('processNoiseLibrary').querySelector('i').classList.add('fa-spinner', 'fa-spin');
+        document.getElementById('processNoiseLibrary').querySelector('h5').textContent = "Đang giảm nhiễu với thư viện tốt nhất...";
+      }
 
       this.showProcessingStatus(statusMessage);
 
@@ -1408,6 +1419,18 @@ class AdvancedAudioApp {
 
       if (result.success) {
         this.hideProcessingStatus();
+        // enable nút và thay icon fa-brain hoặc fa-magic thành trạng thái loading
+        document.getElementById("processNoiseML").disabled = false;
+        document.getElementById("processNoiseLibrary").disabled = false;
+        if(method === "ml") {
+          document.getElementById('processNoiseML').querySelector('i').classList.remove('fa-spinner', 'fa-spin');
+          document.getElementById('processNoiseML').querySelector('i').classList.add('fa-brain');
+          document.getElementById('processNoiseML').querySelector('h5').textContent = "AI/ML Hệ Thống";
+        } else {
+          document.getElementById('processNoiseLibrary').querySelector('i').classList.remove('fa-spinner', 'fa-spin');
+          document.getElementById('processNoiseLibrary').querySelector('i').classList.add('fa-magic');
+          document.getElementById('processNoiseLibrary').querySelector('h5').textContent = "Thư Viện Tốt Nhất";
+        }
         // Use the advanced display for detailed results
         this.displayAdvancedNoiseResults(result);
 
@@ -2103,10 +2126,10 @@ class AdvancedAudioApp {
   setupRealtimeProcessing() {
     console.log("🔧 Setting up Real-time Processing Module");
 
-    // Device management
-    document.getElementById("refreshDevices").addEventListener("click", () => {
-      this.loadAudioDevices();
-    });
+    // Device management comment vì không có thẻ này
+    // document.getElementById("refreshDevices").addEventListener("click", () => {
+    //   this.loadAudioDevices();
+    // });
 
     document.getElementById("testLatency").addEventListener("click", () => {
       this.testLatency();
