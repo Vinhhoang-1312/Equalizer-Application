@@ -734,6 +734,7 @@ class AdvancedAudioApp {
   }
 
   async generateEqualizerPlots() {
+
     if (!this.currentFile) {
       this.showError("Please upload an audio file first");
       return;
@@ -755,6 +756,12 @@ class AdvancedAudioApp {
 
     try {
       this.showProcessingStatus("Generating visualizations...");
+      // disable nút và loading bằng cách thêm icon loading thay cho fa-chart-line
+      console.log(document.getElementById('generatePlotsBtn'));
+      
+      document.getElementById('generatePlotsBtn').disabled = true;
+      document.getElementById('generatePlotsBtn').children[0].classList.remove('fa-chart-line');
+      document.getElementById('generatePlotsBtn').children[0].classList.add('fa-spinner', 'fa-spin');
 
       // We use the 'iir' filter type for visualization as it's faster and reflects the real-time preview
       const response = await fetch("/api/equalizer/visualize", {
@@ -771,6 +778,11 @@ class AdvancedAudioApp {
 
       if (result.success) {
         this.hideProcessingStatus();
+        // enable nút và loading bằng cách thêm icon loading thay cho fa-chart-line
+        document.getElementById('generatePlotsBtn').disabled = false;
+        document.getElementById('generatePlotsBtn').children[0].classList.remove('fa-spinner', 'fa-spin');
+        document.getElementById('generatePlotsBtn').children[0].classList.add('fa-chart-line');
+
         this.displayEqualizerResults(result); // This will only show plots
         this.showSuccess('Visualizations generated successfully.');
       } else {
@@ -2898,11 +2910,31 @@ class AdvancedAudioApp {
     statusDiv.querySelector("span").textContent = message;
     statusDiv.style.display = "block";
     this.isProcessing = true;
+    // disable button #equalizer-tab
+    document.getElementById("equalizer-tab").disabled = true;
+    // disable button #noise-tab
+    document.getElementById("noise-tab").disabled = true;
+    // disable button #genre-tab
+    document.getElementById("genre-tab").disabled = true;
+    // disable button #realtime-tab
+    document.getElementById("realtime-tab").disabled = true;
+    // disable button #analysis-tab
+    document.getElementById("analysis-tab").disabled = true;
   }
 
   hideProcessingStatus() {
     document.getElementById("processingStatus").style.display = "none";
     this.isProcessing = false;
+    //enable button #equalizer-tab
+    document.getElementById("equalizer-tab").disabled = false;
+    // disable button #noise-tab
+    document.getElementById("noise-tab").disabled = false;
+    // disable button #genre-tab
+    document.getElementById("genre-tab").disabled = false;
+    // disable button #realtime-tab
+    document.getElementById("realtime-tab").disabled = false;
+    // disable button #analysis-tab
+    document.getElementById("analysis-tab").disabled = false;
   }
 
   showSuccess(message) {
